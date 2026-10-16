@@ -436,6 +436,181 @@ legend {
   font-variant-numeric: tabular-nums;
 }
 
+.app {
+  min-height: 100dvh;
+  display: flex;
+  flex-direction: column;
+}
+
+.nav {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0;
+  padding: 0 8px;
+  border-bottom: 1px solid var(--line);
+}
+
+.nav a {
+  color: var(--muted);
+  text-decoration: none;
+  padding: 9px 12px;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  font-size: 0.68rem;
+  border-bottom: 2px solid transparent;
+}
+
+.nav a[aria-current="page"] {
+  color: var(--ink);
+  border-bottom-color: #7eb8c9;
+}
+
+.workspace {
+  flex: 1;
+  height: calc(100dvh - 92px);
+  min-height: 640px;
+}
+
+.chart-tabs,
+.speeds,
+.stack,
+.form-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.chart-tabs {
+  margin-bottom: 6px;
+}
+
+.chart-tabs button[aria-selected="true"],
+.speeds button[aria-pressed="true"],
+.stack-button[aria-current="true"] {
+  border-color: #7eb8c9;
+  color: var(--ink);
+}
+
+.stack-button {
+  text-transform: none;
+  letter-spacing: 0.01em;
+  text-align: left;
+  font-size: 0.82rem;
+}
+
+.milestone,
+.equation {
+  margin: 8px 0 0;
+}
+
+.milestone {
+  color: var(--faint);
+  font-size: 0.82rem;
+}
+
+.equation,
+.flow {
+  font-family: "IBM Plex Mono", ui-monospace, monospace;
+  font-size: 0.82rem;
+}
+
+.flow {
+  margin: 0;
+  padding-left: 18px;
+  color: var(--ink);
+}
+
+.flow li + li,
+.pipeline,
+.ranks,
+.lesson,
+.doc,
+.learn-layout {
+  margin-top: 0;
+}
+
+.doc,
+.learn-layout {
+  display: grid;
+  gap: 10px;
+  padding: 10px;
+}
+
+.doc {
+  max-width: 920px;
+}
+
+.learn-layout {
+  grid-template-columns: minmax(240px, 320px) minmax(0, 1fr);
+  align-items: start;
+}
+
+.lesson {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.lesson-stage {
+  position: relative;
+  height: 300px;
+  margin: 12px 0;
+  background: var(--inset);
+  border: 1px solid var(--line);
+}
+
+.findings {
+  margin-top: 12px;
+}
+
+.pipeline,
+.ranks {
+  list-style: none;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  margin: 0;
+  padding: 0;
+}
+
+details.panel summary {
+  cursor: pointer;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  font-size: 0.72rem;
+}
+
+details.panel .panel {
+  border: 0;
+  padding: 12px 0 0;
+}
+
+code {
+  font-family: "IBM Plex Mono", ui-monospace, monospace;
+  font-size: 0.82rem;
+}
+
+.transport {
+  display: flex;
+  flex-wrap: wrap;
+  grid-template-columns: none;
+}
+
+.scrubber {
+  flex: 1 1 160px;
+}
+
+@media (max-width: 1100px) {
+  .workspace {
+    height: auto;
+    min-height: 0;
+  }
+
+  .learn-layout {
+    grid-template-columns: 1fr;
+  }
+}
+
 .unit-rows {
   list-style: none;
   margin: 0;

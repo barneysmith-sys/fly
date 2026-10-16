@@ -66,6 +66,33 @@ class PidOutput:
     saturated: bool
 
 
+def constant_thrust(
+    thrust_command_n: float,
+    altitude_m: float,
+    target_altitude_m: float,
+    thrust_min_n: float,
+    thrust_max_n: float,
+) -> PidOutput:
+    """Hold one thrust command. This is not a controller and not a PID.
+
+    The proportional, integral, and derivative terms are recorded as zero
+    because they were not evaluated. Their sum is therefore not the command.
+    """
+
+    thrust_n = clamp(thrust_command_n, thrust_min_n, thrust_max_n)
+    return PidOutput(
+        feedforward_n=0.0,
+        proportional_n=0.0,
+        integral_term_n=0.0,
+        derivative_n=0.0,
+        thrust_command_n=thrust_command_n,
+        thrust_n=thrust_n,
+        altitude_error_m=target_altitude_m - altitude_m,
+        integral_m_s=0.0,
+        saturated=thrust_n != thrust_command_n,
+    )
+
+
 def altitude_pd_gains(
     mass_kg: float,
     natural_frequency_rad_s: float,

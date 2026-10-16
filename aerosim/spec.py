@@ -5,12 +5,14 @@ checks that, so the manual cannot drift from the code.
 """
 
 from aerosim.control.pid import EQUATION_CONTROL, EQUATION_PD_GAINS, EQUATION_VELOCITY_REFERENCE
+from aerosim.physics.constants import STANDARD_GRAVITY_M_S2
 from aerosim.physics.dynamics import (
     EQUATION_KINEMATICS,
     EQUATION_RK4,
     EQUATION_SATURATION,
     EQUATION_TRANSLATION,
 )
+from aerosim.simulation.motion import HOLD_ACCELERATION_BAND_M_S2, WEIGHT_CHECK_TOLERANCE_N
 
 EQUATIONS: dict[str, str] = {
     "kinematics": EQUATION_KINEMATICS,
@@ -159,6 +161,7 @@ ASSUMPTIONS: tuple[str, ...] = (
     "Gravity feedforward uses the same mass and g as the plant.",
     "Thrust is held constant between samples. The plant step is classical fourth-order Runge-Kutta.",
     "Ground contact is a perfectly inelastic projection onto z = 0 after the step, plus a rest condition when the net acceleration is not upward.",
+    "Open-loop mode holds one thrust command for the whole run and does not evaluate the PID. The recorded proportional, integral, and derivative terms are then zero.",
 )
 
 LIMITATIONS: tuple[str, ...] = (
@@ -170,6 +173,8 @@ LIMITATIONS: tuple[str, ...] = (
     "Gains come from the double-integrator pole formulas, not from a system identification on a vehicle.",
     "A step command with Ki > 0 integrates a large climb error even when thrust is not saturated. That residual keeps the vehicle above the reference after the PD transient has died. The 2 m hover therefore uses Ki = 0. A separate test sets Ki > 0 and checks rejection of a constant external force.",
     "No wind, ground effect, air-density change, or structural mode is modeled.",
+    "Sampled vertical acceleration is the plant acceleration. When the ground constraint holds the vehicle at rest, that sample reports 0 m/s². The ground reaction is not stored.",
+    "A hold label means the sampled acceleration is inside ±0.05 m/s². That band is a teaching threshold. It is not part of the equation of motion.",
 )
 
 
@@ -178,11 +183,14 @@ def model_document() -> dict[str, object]:
 
     return {
         "name": "AEROSIM vertical point mass",
-        "version": "0.1.0",
+        "version": "0.2.0",
         "equations": EQUATIONS,
         "units": UNITS,
         "unit_notes": [dict(note) for note in UNIT_NOTES],
         "conventions": list(CONVENTIONS),
         "assumptions": list(ASSUMPTIONS),
         "limitations": list(LIMITATIONS),
+        "hold_acceleration_band_m_s2": HOLD_ACCELERATION_BAND_M_S2,
+        "weight_check_tolerance_n": WEIGHT_CHECK_TOLERANCE_N,
+        "standard_gravity_m_s2": STANDARD_GRAVITY_M_S2,
     }

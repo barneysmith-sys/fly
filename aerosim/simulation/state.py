@@ -30,6 +30,7 @@ class Sample:
     time_s: float
     altitude_m: float
     vertical_velocity_m_s: float
+    vertical_acceleration_m_s2: float
     thrust_n: float
     thrust_command_n: float
     target_altitude_m: float

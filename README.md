@@ -1,25 +1,44 @@
-# AEROSIM
+# FLY
 
-Educational quadcopter flight dynamics. This repository is FLY. AEROSIM is the
-simulator, and version 0.1 is its first milestone: a vertical point-mass model
-and a reproducible 2 m hover.
+Educational drone-engineering software. The flight model is AEROSIM. Version
+0.2 keeps the verified vertical point-mass plant and adds a training-center
+shell around it.
 
-The plant, the PID, the simulation state, and the dashboard are separate.
-The dashboard draws the trace the Python model returns. It does not invent
-telemetry, and it does not integrate a second copy of the physics.
+The plant, the PID, open-loop thrust, the simulation state, and the interface
+are separate. Every altitude, velocity, acceleration, and thrust on screen
+comes from a Python trace. The page does not integrate a second copy of the
+physics.
 
 ## What is modeled
 
 A point mass on a vertical line, thrust positive upward, gravity downward,
-optional quadratic drag, and a thrust limit. A PID with gravity feedforward
-holds a constant altitude. The shipped scenario starts at rest on the ground
-and is commanded to 2 m. Its integral gain is zero: the feedforward term
-already balances weight, and a nonzero integral on this step is still high at
-12 s. The integral term is implemented and is checked against a constant
-external force.
+optional quadratic drag, and a thrust limit. Two command paths exist:
 
-The equations, assumptions, and limitations are in [docs/MODEL.md](docs/MODEL.md).
-A plain-language guide to the units is in [docs/UNITS.md](docs/UNITS.md).
+- PID altitude hold with gravity feedforward. The shipped scenario starts at
+  rest on the ground and is commanded to 2 m. Its integral gain is zero.
+- Open-loop constant thrust. The PID terms in those samples are zero because
+  the PID was not evaluated.
+
+The equations, the open-loop path, the acceleration reported on each sample,
+and the teaching thresholds are in [docs/MODEL.md](docs/MODEL.md). A
+plain-language units guide is in [docs/UNITS.md](docs/UNITS.md).
+
+## Training center
+
+The interface has six sections.
+
+| Section | What works in this version |
+| --- | --- |
+| Flight | Replays the 2 m hover. The camera shows altitude only. |
+| Learn | One lesson, “Why a hover holds.” The prediction is checked against the returned trace. |
+| Lab | Mass, gravity, and constant thrust, plus the experiments the 1D plant can run. |
+| Autonomy | The PID pipeline, labeled as classical control. |
+| Systems | Component descriptions. None of those parts are in the integrator. |
+| Progress | Beginner, then Flight Fundamentals after the hover lesson matches. |
+
+FPV cameras, stabilized and acro modes, keyboard rate commands, 6-DOF motion,
+sensor noise, wind, and learned controllers are not implemented. Those
+sections say “Coming in a future milestone” instead of imitating them.
 
 ## What is not modeled
 
@@ -30,11 +49,11 @@ navigation. None of those appear as simulated channels.
 
 ```
 aerosim/physics       forces, RK4, parameter checks
-aerosim/control       PID altitude law and the gain formulas
-aerosim/simulation    state, closed-loop runner, 2 m scenario
-aerosim/api           HTTP access to a run
-frontend              React dashboard
-tests                 free fall, hover, step response, saturation, milestone
+aerosim/control       PID altitude law, gain formulas, constant thrust
+aerosim/simulation    state, runner, 2 m scenario, experiments
+aerosim/api           HTTP access to a run and to the experiment catalog
+frontend              Training center
+tests                 free fall, hover, step response, saturation, open loop
 ```
 
 ## Run the tests
@@ -48,7 +67,8 @@ python3 -m venv .venv
 The free-fall and hover tests compare the integrator with the closed-form
 constant-acceleration solution. The step-response test compares a PD loop
 with the critically damped continuous solution and checks that the error
-falls when the timestep is reduced.
+falls when the timestep is reduced. The experiment catalog runs each named
+case and checks that case’s own findings.
 
 ## Run the 2 m hover
 
@@ -56,9 +76,9 @@ falls when the timestep is reduced.
 .venv/bin/python -m aerosim
 ```
 
-That prints the summary of one integration. It does not start the dashboard.
+That prints the summary of one integration. It does not start the interface.
 
-## Dashboard
+## Training center
 
 Terminal A:
 
@@ -74,14 +94,20 @@ npm install
 npm run dev
 ```
 
-Open the URL Vite prints. The page loads `GET /api/scenarios/hover-2m`, which
-runs the model, then plots that response. Parameter edits are sent to
-`POST /api/simulate` and the next plot is the new trace. If the API is down,
-the page reports the error and leaves the readouts empty.
+Open the URL Vite prints. Flight loads `GET /api/scenarios/hover-2m`. The lab
+and the hover lesson send configs to `POST /api/simulate`. Named experiments
+are `GET /api/experiments` and `GET /api/experiments/{id}`. If the API is
+down, the page reports the error and leaves the readouts empty.
+
+GitHub Pages cannot run this Python model. A static host will not produce a
+trace.
 
 ## Milestone
 
 The 2 m hover passes when, from t = 8 s onward, altitude stays within 0.02 m
 of 2 m and vertical speed stays within 0.05 m/s, thrust stays inside its
-bounds, and the vehicle never goes below the ground. The acceptance block on
-the dashboard is that check, scored by the Python run.
+bounds, and the vehicle never goes below the ground. That band scores the
+hover. It does not score free fall or an arbitrary thrust.
+
+The next physics milestone is a documented 6-DOF quadcopter. Until that
+exists, FLY does not offer FPV flight.

@@ -2,20 +2,24 @@ import { useMemo } from "react";
 import { formatFixed } from "../format";
 import type { Sample } from "../types";
 
-type AltitudeChartProps = {
+type TraceChartProps = {
   samples: Sample[];
   index: number;
+  label: string;
+  unit: string;
+  value: (sample: Sample) => number;
+  reference?: (sample: Sample) => number;
 };
 
 const WIDTH = 720;
 const HEIGHT = 240;
-const PAD = { top: 16, right: 16, bottom: 32, left: 48 };
+const PAD = { top: 16, right: 16, bottom: 32, left: 52 };
 
-export function AltitudeChart({ samples, index }: AltitudeChartProps) {
-  const geometry = useMemo(() => buildGeometry(samples), [samples]);
+export function TraceChart({ samples, index, label, unit, value, reference }: TraceChartProps) {
+  const geometry = useMemo(() => buildGeometry(samples, value, reference), [samples, value, reference]);
   if (!geometry) {
     return (
-      <figure className="chart-empty" aria-label="Altitude versus time">
+      <figure className="chart-empty" aria-label={`${label} versus time`}>
         <p>No samples yet.</p>
       </figure>
     );
@@ -23,16 +27,16 @@ export function AltitudeChart({ samples, index }: AltitudeChartProps) {
 
   const cursor = samples[Math.min(Math.max(index, 0), samples.length - 1)];
   const cursorX = geometry.xScale(cursor.time_s);
-  const cursorY = geometry.yScale(cursor.altitude_m);
+  const cursorY = geometry.yScale(value(cursor));
+  const referenceValue = reference ? reference(cursor) : null;
   const description =
-    `${samples.length} samples of altitude versus time. ` +
-    `Final altitude ${formatFixed(samples[samples.length - 1].altitude_m, 4)} m. ` +
-    `Target ${formatFixed(cursor.target_altitude_m, 4)} m.`;
+    `${samples.length} samples of ${label.toLowerCase()} versus time. ` +
+    `At the playhead, ${formatFixed(value(cursor), 4)} ${unit}.`;
 
   return (
-    <figure className="chart" aria-label="Altitude versus time">
+    <figure className="chart" aria-label={`${label} versus time`}>
       <svg viewBox={`0 0 ${WIDTH} ${HEIGHT}`} role="img">
-        <title>Altitude versus time</title>
+        <title>{`${label} versus time`}</title>
         <desc>{description}</desc>
         {geometry.yTicks.map((tick) => (
           <g key={`y-${tick}`}>
@@ -53,18 +57,20 @@ export function AltitudeChart({ samples, index }: AltitudeChartProps) {
             {formatTick(tick)}
           </text>
         ))}
-        <line
-          x1={PAD.left}
-          x2={WIDTH - PAD.right}
-          y1={geometry.yScale(cursor.target_altitude_m)}
-          y2={geometry.yScale(cursor.target_altitude_m)}
-          className="target-line"
-        />
-        <polyline points={geometry.points} className="trace" fill="none" stroke="#e4ebf1" strokeWidth={1.5} />
+        {referenceValue !== null ? (
+          <line
+            x1={PAD.left}
+            x2={WIDTH - PAD.right}
+            y1={geometry.yScale(referenceValue)}
+            y2={geometry.yScale(referenceValue)}
+            className="target-line"
+          />
+        ) : null}
+        <polyline points={geometry.points} className="trace" fill="none" stroke="#d5e4ea" strokeWidth={1.5} />
         <line x1={cursorX} x2={cursorX} y1={PAD.top} y2={HEIGHT - PAD.bottom} className="playhead" />
         <circle cx={cursorX} cy={cursorY} r={3.5} className="playhead-point" />
         <text x={PAD.left} y={12} className="axis-title">
-          altitude (m)
+          {`${label.toLowerCase()} (${unit})`}
         </text>
         <text x={WIDTH - PAD.right} y={HEIGHT - 10} className="axis-title time-title">
           time (s)
@@ -74,33 +80,37 @@ export function AltitudeChart({ samples, index }: AltitudeChartProps) {
   );
 }
 
-function buildGeometry(samples: Sample[]) {
+function buildGeometry(
+  samples: Sample[],
+  value: (sample: Sample) => number,
+  reference?: (sample: Sample) => number,
+) {
   if (samples.length === 0) {
     return null;
   }
   const times = samples.map((sample) => sample.time_s);
-  const altitudes = samples.map((sample) => sample.altitude_m);
-  const target = samples[0].target_altitude_m;
+  const values = samples.map(value);
+  const referenceValues = reference ? samples.map(reference) : [];
   const tMin = times[0];
   const tMax = times[times.length - 1];
-  const zMin = Math.min(0, target, ...altitudes);
-  const zMax = Math.max(target, ...altitudes);
-  const zPad = Math.max(0.2, (zMax - zMin) * 0.08);
-  const zLo = zMin - zPad * 0.2;
-  const zHi = zMax + zPad;
+  const yMin = Math.min(...values, ...referenceValues);
+  const yMax = Math.max(...values, ...referenceValues);
+  const yPad = Math.max(0.2, (yMax - yMin) * 0.08);
+  const yLo = yMin - yPad;
+  const yHi = yMax + yPad;
   const plotW = WIDTH - PAD.left - PAD.right;
   const plotH = HEIGHT - PAD.top - PAD.bottom;
   const xScale = (time: number) => PAD.left + ((time - tMin) / (tMax - tMin || 1)) * plotW;
-  const yScale = (altitude: number) => PAD.top + ((zHi - altitude) / (zHi - zLo || 1)) * plotH;
+  const yScale = (reading: number) => PAD.top + ((yHi - reading) / (yHi - yLo || 1)) * plotH;
   const points = samples
-    .map((sample) => `${xScale(sample.time_s).toFixed(2)},${yScale(sample.altitude_m).toFixed(2)}`)
+    .map((sample) => `${xScale(sample.time_s).toFixed(2)},${yScale(value(sample)).toFixed(2)}`)
     .join(" ");
   return {
     points,
     xScale,
     yScale,
     xTicks: ticks(tMin, tMax, 6),
-    yTicks: ticks(zLo, zHi, 5),
+    yTicks: ticks(yLo, yHi, 5),
   };
 }
 

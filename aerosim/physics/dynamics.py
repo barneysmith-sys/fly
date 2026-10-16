@@ -61,6 +61,37 @@ def vertical_acceleration_m_s2(
     return (thrust_n + drag_n + external_force_n) / mass_kg - gravity_m_s2
 
 
+def reported_vertical_acceleration_m_s2(
+    altitude_m: float,
+    vertical_velocity_m_s: float,
+    thrust_n: float,
+    mass_kg: float,
+    gravity_m_s2: float,
+    drag_coefficient_kg_per_m: float,
+    external_force_n: float = 0.0,
+    ground_contact: bool = False,
+) -> float:
+    """Acceleration stored on a sample.
+
+    This is the same specific force as the ODE, except when ground contact is
+    holding the vehicle at rest. In that case the ground reaction cancels the
+    downward net force and the vehicle acceleration is 0. The reaction itself
+    is not a state and is not returned.
+    """
+
+    accel = vertical_acceleration_m_s2(
+        vertical_velocity_m_s=vertical_velocity_m_s,
+        thrust_n=thrust_n,
+        mass_kg=mass_kg,
+        gravity_m_s2=gravity_m_s2,
+        drag_coefficient_kg_per_m=drag_coefficient_kg_per_m,
+        external_force_n=external_force_n,
+    )
+    if ground_contact and altitude_m <= 0.0 and vertical_velocity_m_s <= 0.0 and accel <= 0.0:
+        return 0.0
+    return accel
+
+
 def step_vertical(
     altitude_m: float,
     vertical_velocity_m_s: float,

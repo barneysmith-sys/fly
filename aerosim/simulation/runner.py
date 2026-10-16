@@ -18,10 +18,11 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import Any
 
-from aerosim.control.pid import altitude_pid
-from aerosim.physics.dynamics import step_vertical
+from aerosim.control.pid import altitude_pid, constant_thrust
+from aerosim.physics.dynamics import reported_vertical_acceleration_m_s2, step_vertical
 from aerosim.physics.parameters import SimulationConfig, validate_config
 from aerosim.simulation.acceptance import evaluate_trace
+from aerosim.simulation.motion import classify_vertical_motion
 from aerosim.simulation.state import Sample, SimulationState
 
 
@@ -59,26 +60,46 @@ def run_simulation(config: SimulationConfig) -> SimulationResult:
 
     for index in range(steps + 1):
         state.time_s = index * config.timestep_s
-        command = altitude_pid(
+        if config.control_mode == "open_loop":
+            command = constant_thrust(
+                thrust_command_n=config.open_loop_thrust_n if config.open_loop_thrust_n is not None else 0.0,
+                altitude_m=state.altitude_m,
+                target_altitude_m=config.target_altitude_m,
+                thrust_min_n=config.thrust_min_n,
+                thrust_max_n=config.thrust_max_n,
+            )
+        else:
+            command = altitude_pid(
+                altitude_m=state.altitude_m,
+                vertical_velocity_m_s=state.vertical_velocity_m_s,
+                target_altitude_m=config.target_altitude_m,
+                integral_m_s=state.integral_m_s,
+                timestep_s=config.timestep_s,
+                mass_kg=config.mass_kg,
+                gravity_m_s2=config.gravity_m_s2,
+                thrust_min_n=config.thrust_min_n,
+                thrust_max_n=config.thrust_max_n,
+                kp_n_per_m=config.kp_n_per_m,
+                ki_n_per_m_s=config.ki_n_per_m_s,
+                kd_n_s_per_m=config.kd_n_s_per_m,
+                velocity_reference_m_s=config.velocity_reference_m_s,
+            )
+        acceleration_m_s2 = reported_vertical_acceleration_m_s2(
             altitude_m=state.altitude_m,
             vertical_velocity_m_s=state.vertical_velocity_m_s,
-            target_altitude_m=config.target_altitude_m,
-            integral_m_s=state.integral_m_s,
-            timestep_s=config.timestep_s,
+            thrust_n=command.thrust_n,
             mass_kg=config.mass_kg,
             gravity_m_s2=config.gravity_m_s2,
-            thrust_min_n=config.thrust_min_n,
-            thrust_max_n=config.thrust_max_n,
-            kp_n_per_m=config.kp_n_per_m,
-            ki_n_per_m_s=config.ki_n_per_m_s,
-            kd_n_s_per_m=config.kd_n_s_per_m,
-            velocity_reference_m_s=config.velocity_reference_m_s,
+            drag_coefficient_kg_per_m=config.drag_coefficient_kg_per_m,
+            external_force_n=config.external_force_n,
+            ground_contact=config.ground_contact,
         )
         samples.append(
             Sample(
                 time_s=state.time_s,
                 altitude_m=state.altitude_m,
                 vertical_velocity_m_s=state.vertical_velocity_m_s,
+                vertical_acceleration_m_s2=acceleration_m_s2,
                 thrust_n=command.thrust_n,
                 thrust_command_n=command.thrust_command_n,
                 target_altitude_m=config.target_altitude_m,
@@ -117,7 +138,7 @@ def run_simulation(config: SimulationConfig) -> SimulationResult:
     )
 
 
-def summarize(result: SimulationResult) -> dict[str, float | int]:
+def summarize(result: SimulationResult) -> dict[str, float | int | str]:
     """Reduce a trace to scalars. Every value is taken from the samples."""
 
     samples = result.samples
@@ -136,6 +157,9 @@ def summarize(result: SimulationResult) -> dict[str, float | int]:
             abs(sample.vertical_velocity_m_s) for sample in samples
         ),
         "hover_thrust_n": result.config.mass_kg * result.config.gravity_m_s2,
+        "initial_vertical_acceleration_m_s2": samples[0].vertical_acceleration_m_s2,
+        "final_vertical_acceleration_m_s2": final.vertical_acceleration_m_s2,
+        "initial_motion": classify_vertical_motion(samples[0].vertical_acceleration_m_s2),
     }
 
 

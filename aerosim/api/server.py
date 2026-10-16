@@ -17,6 +17,7 @@ from typing import Any
 from urllib.parse import urlparse
 
 from aerosim.physics.parameters import SimulationConfig, validate_config
+from aerosim.simulation.experiments import experiment_by_id, experiment_summary, list_experiments, run_experiment
 from aerosim.simulation.runner import run_simulation, summarize
 from aerosim.simulation.scenarios import hover_2m_config
 from aerosim.spec import model_document
@@ -42,6 +43,8 @@ _CONFIG_FIELDS = (
     "velocity_reference_m_s",
     "natural_frequency_rad_s",
     "damping_ratio",
+    "control_mode",
+    "open_loop_thrust_n",
 )
 
 
@@ -68,7 +71,13 @@ def config_from_json(payload: dict[str, Any]) -> SimulationConfig:
         raise ValueError(f"unknown fields: {', '.join(unknown)}")
     missing = [field for field in _CONFIG_FIELDS if field not in payload]
     # Design metadata may be omitted. velocity_reference defaults to 0.
-    optional = {"natural_frequency_rad_s", "damping_ratio", "velocity_reference_m_s"}
+    optional = {
+        "natural_frequency_rad_s",
+        "damping_ratio",
+        "velocity_reference_m_s",
+        "control_mode",
+        "open_loop_thrust_n",
+    }
     missing = [field for field in missing if field not in optional]
     if missing:
         raise ValueError(f"missing fields: {', '.join(missing)}")
@@ -81,6 +90,14 @@ def config_from_json(payload: dict[str, Any]) -> SimulationConfig:
             if not isinstance(value, bool):
                 raise ValueError("ground_contact must be a boolean")
             values[field] = value
+            continue
+        if field == "control_mode":
+            if not isinstance(value, str) or value not in {"pid", "open_loop"}:
+                raise ValueError("control_mode must be 'pid' or 'open_loop'")
+            values[field] = value
+            continue
+        if field == "open_loop_thrust_n" and value is None:
+            values[field] = None
             continue
         if field in {"natural_frequency_rad_s", "damping_ratio"} and value is None:
             values[field] = None
@@ -107,6 +124,24 @@ class SimulationHandler(BaseHTTPRequestHandler):
         if path == "/api/scenarios/hover-2m":
             result = run_simulation(hover_2m_config())
             self._send(200, result_payload(result, "hover_2m"))
+            return
+        if path == "/api/experiments":
+            self._send(
+                200,
+                {"experiments": [experiment_summary(item) for item in list_experiments()]},
+            )
+            return
+        prefix = "/api/experiments/"
+        if path.startswith(prefix):
+            experiment_id = path[len(prefix) :]
+            experiment = experiment_by_id(experiment_id) if experiment_id and "/" not in experiment_id else None
+            if experiment is None:
+                self._send(404, {"error": f"no experiment {experiment_id}"})
+                return
+            result, report = run_experiment(experiment)
+            payload = result_payload(result, experiment.experiment_id)
+            payload["experiment"] = report
+            self._send(200, payload)
             return
         self._send(404, {"error": f"no route {path}"})
 

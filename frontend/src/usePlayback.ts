@@ -2,22 +2,30 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { indexAtTime } from "./playback";
 import type { Sample } from "./types";
 
+export const PLAYBACK_SPEEDS = [0.5, 1, 2] as const;
+
 export type Playback = {
   index: number;
   playing: boolean;
+  speed: number;
   toggle: () => void;
   seek: (index: number) => void;
   jumpToEnd: () => void;
+  restart: () => void;
+  setSpeed: (speed: number) => void;
 };
 
 export function usePlayback(samples: Sample[] | null): Playback {
   const [index, setIndex] = useState(0);
   const [playing, setPlaying] = useState(false);
+  const [speed, setSpeedState] = useState(1);
   const indexRef = useRef(0);
   const playingRef = useRef(false);
+  const speedRef = useRef(1);
   const samplesRef = useRef(samples);
   samplesRef.current = samples;
   playingRef.current = playing;
+  speedRef.current = speed;
 
   useEffect(() => {
     if (!samples || samples.length === 0) {
@@ -41,15 +49,16 @@ export function usePlayback(samples: Sample[] | null): Playback {
     if (!data || data.length < 2) {
       return;
     }
-    const startWall = performance.now();
-    const startSim = data[Math.min(indexRef.current, data.length - 1)].time_s;
+    let lastWall = performance.now();
+    let simTime = data[Math.min(indexRef.current, data.length - 1)].time_s;
     let frame = 0;
     const tick = (now: number) => {
       const current = samplesRef.current;
       if (!current || current.length === 0) {
         return;
       }
-      const simTime = startSim + (now - startWall) / 1000;
+      simTime += ((now - lastWall) / 1000) * speedRef.current;
+      lastWall = now;
       const lastTime = current[current.length - 1].time_s;
       if (simTime >= lastTime) {
         indexRef.current = current.length - 1;
@@ -101,5 +110,24 @@ export function usePlayback(samples: Sample[] | null): Playback {
     setPlaying(false);
   }, []);
 
-  return { index, playing, toggle, seek, jumpToEnd };
+  const restart = useCallback(() => {
+    const data = samplesRef.current;
+    if (!data || data.length === 0) {
+      return;
+    }
+    const reduceMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+    indexRef.current = 0;
+    setIndex(0);
+    setPlaying(!reduceMotion && data.length > 1);
+  }, []);
+
+  const setSpeed = useCallback((next: number) => {
+    if (!PLAYBACK_SPEEDS.includes(next as (typeof PLAYBACK_SPEEDS)[number])) {
+      return;
+    }
+    speedRef.current = next;
+    setSpeedState(next);
+  }, []);
+
+  return { index, playing, speed, toggle, seek, jumpToEnd, restart, setSpeed };
 }

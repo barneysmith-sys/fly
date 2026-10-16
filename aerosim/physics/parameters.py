@@ -34,6 +34,8 @@ class SimulationConfig:
     velocity_reference_m_s: float = 0.0
     natural_frequency_rad_s: float | None = None
     damping_ratio: float | None = None
+    control_mode: str = "pid"
+    open_loop_thrust_n: float | None = None
 
     def to_dict(self) -> dict[str, object]:
         return asdict(self)
@@ -80,6 +82,15 @@ def validate_config(config: SimulationConfig) -> None:
             _finite(name, value)
             if value < 0.0:
                 raise ValueError(f"{name} must be >= 0 when provided")
+
+    if config.control_mode not in {"pid", "open_loop"}:
+        raise ValueError("control_mode must be 'pid' or 'open_loop'")
+    if config.control_mode == "open_loop":
+        if config.open_loop_thrust_n is None:
+            raise ValueError("open_loop_thrust_n is required when control_mode is open_loop")
+        _finite("open_loop_thrust_n", config.open_loop_thrust_n)
+    elif config.open_loop_thrust_n is not None:
+        _finite("open_loop_thrust_n", config.open_loop_thrust_n)
 
 
 def _finite(name: str, value: float) -> None:

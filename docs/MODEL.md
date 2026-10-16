@@ -249,9 +249,57 @@ Two runs of this configuration produce the same samples.
 - Gains are taken from the pole formulas, not from identification of a vehicle.
 - Ki > 0 on a large step winds the integral during the climb, including when the thrust command is inside its limits. The milestone leaves Ki at 0 for that reason.
 - No wind, ground effect, density change, or structural flexibility.
+- Open-loop mode records zero PID terms. Those zeros were not computed by the control law.
+- A sample reports 0 m/s² while the ground constraint holds the vehicle at rest. That is the vehicle acceleration, not the unbalanced force.
+- The ±0.05 m/s² hold label is a teaching threshold, not a term in the equation of motion.
+
+## Open loop
+
+`control_mode = "open_loop"` holds one thrust command for the whole run:
+
+```
+T_cmd = open_loop_thrust_n
+```
+
+The PID is not evaluated. The sample still records proportional, integral, and
+derivative terms, and those terms are zero. They are not a controller that
+happens to sum to the command. The same saturation clamp is applied before
+the force enters the equation of motion.
+
+`control_mode = "pid"` is the altitude law above. Existing configs that omit
+the field stay on that law.
+
+## Acceleration on a sample
+
+Each sample stores the vertical acceleration of the vehicle at that instant.
+It is the specific force from the equation of motion, using the thrust that
+will be held until the next sample. Drag and `F_ext` are included.
+
+When ground contact is holding the vehicle at rest — `z ≤ 0`, `v ≤ 0`, and
+the unbalanced acceleration is not upward — the sample reports `0 m/s²`. The
+ground reaction cancels the downward net force. That reaction is not a stored
+channel. A lesson that wants to see `a = T/m − g` has to start in the air.
+
+## Teaching thresholds
+
+Two numbers are served with the model document and are not part of the
+equation of motion.
+
+- A sampled acceleration inside ±0.05 m/s² is labeled `hold`. Above that band
+  the label is `climb`. Below it, `descend`. The first sample’s label is
+  `summary.initial_motion`.
+- A weight answer within 0.05 N of `m·g` matches the hover-thrust summary.
+
+The 2 m hover acceptance band is a separate check. It scores the closed-loop
+hover. It does not score free fall or an arbitrary open-loop thrust.
 
 ## What this version does not do
 
+The training center can show this vertical model, a hover lesson graded from
+its samples, and the experiments the plant can actually run. It does not fly
+a 6-DOF quadcopter.
+
 Autonomous navigation, obstacle avoidance, mission planning, motor mixing,
-and sensor simulation are outside this model. They are not approximated by
-placeholder outputs.
+FPV cameras, stabilized and acro modes, and sensor simulation are outside
+this model. They are not approximated by placeholder outputs. Pages that
+would require them say so.

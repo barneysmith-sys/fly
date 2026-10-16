@@ -4,9 +4,10 @@ import type { Sample, UnitNote } from "../types";
 type ReadoutsProps = {
   sample: Sample | null;
   unitNotes: UnitNote[];
+  controlMode?: "pid" | "open_loop" | null;
 };
 
-export function Readouts({ sample, unitNotes }: ReadoutsProps) {
+export function Readouts({ sample, unitNotes, controlMode = null }: ReadoutsProps) {
   const explain = (quantity: string) => unitNotes.find((note) => note.quantity === quantity)?.plain;
   return (
     <section className="panel readouts" aria-label="Simulation sample">
@@ -36,6 +37,13 @@ export function Readouts({ sample, unitNotes }: ReadoutsProps) {
           detail="Positive upward"
         />
         <Readout
+          label="Acceleration"
+          value={sample ? formatSigned(sample.vertical_acceleration_m_s2, 3) : "—"}
+          unit="m/s²"
+          hint={explain("Acceleration")}
+          detail="Positive upward"
+        />
+        <Readout
           label="Thrust"
           value={sample ? formatFixed(sample.thrust_n, 3) : "—"}
           unit="N"
@@ -50,6 +58,13 @@ export function Readouts({ sample, unitNotes }: ReadoutsProps) {
         />
       </dl>
       <h3>Control terms</h3>
+      {controlMode === "open_loop" ? (
+        <p className="field-hint">
+          Open loop. The PID was not evaluated. These recorded terms are zero and are not part of the thrust command.
+        </p>
+      ) : (
+        <p className="field-hint">Classical PID with gravity feedforward. This is not an artificial intelligence.</p>
+      )}
       <ul className="terms">
         <Term label="m·g" value={sample?.feedforward_n} />
         <Term label="P" value={sample?.proportional_n} />

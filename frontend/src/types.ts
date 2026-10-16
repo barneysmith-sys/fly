@@ -17,12 +17,15 @@ export type SimulationConfig = {
   velocity_reference_m_s: number;
   natural_frequency_rad_s: number | null;
   damping_ratio: number | null;
+  control_mode: "pid" | "open_loop";
+  open_loop_thrust_n: number | null;
 };
 
 export type Sample = {
   time_s: number;
   altitude_m: number;
   vertical_velocity_m_s: number;
+  vertical_acceleration_m_s2: number;
   thrust_n: number;
   thrust_command_n: number;
   target_altitude_m: number;
@@ -64,6 +67,9 @@ export type Summary = {
   maximum_altitude_m: number;
   maximum_abs_vertical_velocity_m_s: number;
   hover_thrust_n: number;
+  initial_vertical_acceleration_m_s2: number;
+  final_vertical_acceleration_m_s2: number;
+  initial_motion: "climb" | "hold" | "descend";
 };
 
 export type UnitNote = {
@@ -83,6 +89,9 @@ export type ModelDocument = {
   conventions: string[];
   assumptions: string[];
   limitations: string[];
+  hold_acceleration_band_m_s2: number;
+  weight_check_tolerance_n: number;
+  standard_gravity_m_s2: number;
 };
 
 export type SimulationResponse = {
@@ -92,6 +101,36 @@ export type SimulationResponse = {
   samples: Sample[];
   summary: Summary;
   acceptance: Acceptance;
+};
+
+export type Motion = "climb" | "hold" | "descend";
+
+export type ExperimentSummary = {
+  experiment_id: string;
+  title: string;
+  summary: string;
+  supports: string;
+  inputs: string[];
+  scores_hover_band: boolean;
+};
+
+export type Finding = {
+  name: string;
+  description: string;
+  observed: number;
+  expected: number;
+  tolerance: number | null;
+  unit: string;
+  passed: boolean;
+};
+
+export type ExperimentReport = ExperimentSummary & {
+  passed: boolean;
+  findings: Finding[];
+};
+
+export type ExperimentResponse = SimulationResponse & {
+  experiment: ExperimentReport;
 };
 
 export type Draft = {
@@ -155,6 +194,8 @@ export function configFromDraft(draft: Draft): SimulationConfig {
     velocity_reference_m_s: 0,
     natural_frequency_rad_s: null,
     damping_ratio: null,
+    control_mode: "pid",
+    open_loop_thrust_n: null,
   };
   for (const key of NUMERIC_DRAFT_KEYS) {
     const value = Number(draft[key].trim());
