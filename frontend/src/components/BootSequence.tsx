@@ -1,10 +1,13 @@
 import { useEffect, useState } from "react";
+import { EXPLORER_4 } from "../sim/aircraft";
+import { coastalSite, type Site } from "../sim/coastal";
 import { manhattanDistrict, type District } from "../sim/district";
-import { NOMINAL_VEHICLE, type VehicleParams } from "../sim/vehicle";
+import type { VehicleParams } from "../sim/vehicle";
 
 const STORAGE_KEY = "fly.boot.v1";
 
 type Ready = {
+  site: Site;
   district: District;
   vehicle: VehicleParams;
 };
@@ -19,22 +22,23 @@ const STEPS = [
     run: () => true,
   },
   {
-    label: "LOADING ENVIRONMENT",
+    label: "LOADING COASTAL BASE",
     run: (ready: Partial<Ready>) => {
+      ready.site = coastalSite();
       ready.district = manhattanDistrict();
-      return true;
+      return Boolean(ready.site.boxes.length);
     },
   },
   {
     label: "CONFIGURING FLIGHT MODEL",
     run: (ready: Partial<Ready>) => {
-      ready.vehicle = NOMINAL_VEHICLE;
+      ready.vehicle = EXPLORER_4.params;
       return ready.vehicle.massKg > 0;
     },
   },
   {
     label: "ESTABLISHING TELEMETRY",
-    run: (ready: Partial<Ready>) => Boolean(ready.district && ready.vehicle),
+    run: (ready: Partial<Ready>) => Boolean(ready.site && ready.district && ready.vehicle),
   },
 ] as const;
 
@@ -51,8 +55,8 @@ export function BootSequence({ onReady }: BootSequenceProps) {
         step.run(ready);
       }
       window.sessionStorage.setItem(STORAGE_KEY, "1");
-      if (ready.district && ready.vehicle) {
-        onReady({ district: ready.district, vehicle: ready.vehicle });
+      if (ready.site && ready.district && ready.vehicle) {
+        onReady({ site: ready.site, district: ready.district, vehicle: ready.vehicle });
       }
       return;
     }
@@ -81,8 +85,8 @@ export function BootSequence({ onReady }: BootSequenceProps) {
             stepIndex += 1;
             if (stepIndex >= STEPS.length) {
               window.sessionStorage.setItem(STORAGE_KEY, "1");
-              if (ready.district && ready.vehicle) {
-                onReady({ district: ready.district, vehicle: ready.vehicle });
+              if (ready.site && ready.district && ready.vehicle) {
+                onReady({ site: ready.site, district: ready.district, vehicle: ready.vehicle });
               }
               return;
             }

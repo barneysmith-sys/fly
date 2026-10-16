@@ -7,7 +7,7 @@
     "dev": "vite --host 0.0.0.0",
     "build": "tsc --noEmit && vite build && cp dist/index.html dist/404.html",
     "preview": "vite preview --host 0.0.0.0 --port 4173",
-    "test:sim": "node --experimental-strip-types --test src/sim/rigidBody.test.ts"
+    "test:sim": "node --experimental-strip-types --test src/sim/*.test.ts"
   },
   "dependencies": {
     "react": "^19.0.0",

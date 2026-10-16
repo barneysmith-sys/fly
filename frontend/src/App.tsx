@@ -9,9 +9,11 @@ import { LearnPage } from "./pages/LearnPage";
 import { ProgressPage } from "./pages/ProgressPage";
 import { SystemsPage } from "./pages/SystemsPage";
 import { TrainPage } from "./pages/TrainPage";
+import { EXPLORER_4 } from "./sim/aircraft";
+import { coastalSite, type Site } from "./sim/coastal";
 import type { District } from "./sim/district";
 import { manhattanDistrict } from "./sim/district";
-import { NOMINAL_VEHICLE, type VehicleParams } from "./sim/vehicle";
+import type { VehicleParams } from "./sim/vehicle";
 
 const NAV = [
   ["fly", "Fly"],
@@ -24,6 +26,7 @@ type NavId = (typeof NAV)[number][0];
 type SectionId = NavId | "vertical" | "systems" | "progress" | "control";
 
 type Ready = {
+  site: Site;
   district: District;
   vehicle: VehicleParams;
 };
@@ -48,7 +51,7 @@ function rememberedReady(): Ready | null {
   if (window.sessionStorage.getItem(BOOT_KEY) !== "1") {
     return null;
   }
-  return { district: manhattanDistrict(), vehicle: NOMINAL_VEHICLE };
+  return { site: coastalSite(), district: manhattanDistrict(), vehicle: EXPLORER_4.params };
 }
 
 export function App() {
@@ -95,6 +98,10 @@ export function App() {
       <div className="app">
         <header className="topbar">
           <div className="brand">
+            <svg className="mark" viewBox="0 0 32 32" aria-hidden="true">
+              <path d="M4 22 L14 8 H18 L8 22 Z" />
+              <path d="M14 22 L24 8 H28 L18 22 Z" />
+            </svg>
             <h1>FLY</h1>
             <p className="eyebrow">Flight systems</p>
           </div>
@@ -111,7 +118,7 @@ export function App() {
             ))}
           </nav>
           <p className="chrome" aria-label="Simulation status">
-            <span>{ready.district.label}</span>
+            <span>{section === "train" ? ready.district.label : ready.site.label}</span>
             <span>{chrome.status}</span>
             <span>{chrome.mode}</span>
           </p>
@@ -119,8 +126,9 @@ export function App() {
             <summary>Settings</summary>
             <div className="settings-panel">
               <p className="field-hint">
-                Civilian educational simulator. The city view integrates a 6-DOF rigid body in the browser. The lab and
-                the hover lesson call the Python 1D plant. Building footprints are OpenStreetMap data, not a survey.
+                Civilian educational simulator. Coastal Base 01 is a fictional field. The flight view integrates a 6-DOF
+                rigid body in the browser. The lab and the hover lesson call the Python 1D plant. The train episode
+                still uses the OpenStreetMap Flatiron extract, which is not a survey.
               </p>
               <a href="#vertical">Vertical hover replay</a>
               <a href="#control">Why the PID is not AI</a>
@@ -129,7 +137,7 @@ export function App() {
             </div>
           </details>
         </header>
-        {section === "fly" ? <FlyPage district={ready.district} /> : null}
+        {section === "fly" ? <FlyPage site={ready.site} /> : null}
         {section === "learn" ? (
           <div className="section-scroll">
             <LearnPage />

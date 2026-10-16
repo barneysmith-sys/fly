@@ -9,21 +9,22 @@ system and it is not a navigation product.
 The city view is a browser rigid-body simulator. The lab is a separate,
 tested Python model of vertical motion. They are not the same integrator.
 
-![Chase view at hover in the Flatiron district. Altitude 2.00 m, thrust equal to weight at 6.37 N.](docs/images/fly-chase.png)
+![Chase view on the launch ring at Coastal Base 01. EXPLORER-4 is on the ground, thrust at zero.](docs/images/fly-chase.png)
 
 ## What you can do
 
 | Environment | What works |
 | --- | --- |
-| FLY | Fly a 6-DOF quadcopter over OpenStreetMap footprints of the Flatiron district. FPV, chase, and external cameras. Keyboard and gamepad input. Pause, resume, and reset. Ground and building contact. Live telemetry from the integrator. A rules-based instructor. |
+| FLY | Fly EXPLORER-4, a 6-DOF quadcopter, at fictional Coastal Base 01. Preflight briefing, FPV, chase, and orbit cameras. WASD and arrow keys. Gamepad when the browser exposes one. Touch sticks on a coarse pointer. Free flight, a six-stage academy, and a precision landing scored from the touchdown. |
 | LEARN | A hover lesson checked against the Python trace, and a pitch lesson checked against the rigid-body force equation. Other topics point at a real experiment or say they are not lessons yet. |
 | TRAIN | Deterministic landing episodes on the marked roof. Position descent and vertical-only descent. Position error, touchdown speed, and a success count of episodes you actually run. |
 | LAB | The Python 1D plant: mass, thrust, drag, and the named experiments. |
 
-Washington, London, and San Francisco are listed and are not built. No policy
-is trained. The instructor is not a language model. The Flatiron model is
-documented in [docs/DISTRICT.md](docs/DISTRICT.md). It is approximate and not
-for navigation. Map data © OpenStreetMap contributors, ODbL.
+The coastal field is documented in [docs/COASTAL.md](docs/COASTAL.md). EXPLORER-4
+is documented in [docs/AIRCRAFT.md](docs/AIRCRAFT.md). The train episode still
+uses the Flatiron extract in [docs/DISTRICT.md](docs/DISTRICT.md). That extract
+is approximate and not for navigation. Map data © OpenStreetMap contributors, ODbL.
+No policy is trained. The instructor is not a language model.
 
 ## Models
 
@@ -101,13 +102,16 @@ Print one 2 m hover without the interface:
 
 ## Flight controls
 
-W and S pitch, A and D roll, Q and E yaw, Shift and Ctrl (or Z) change
-collective thrust, P pauses, R resets. Stabilized mode levels roll and pitch
-when the sticks are centered. Throttle is collective thrust, not an altitude
-hold. Acro mode commands body rates and does not level the vehicle.
+W and S raise and lower collective thrust. A and D yaw. The arrow keys pitch
+and roll. C switches FPV and chase. R resets. Space pauses. H shows the control
+card. Esc opens the pause menu. Keys can be remapped from that card. Stabilized
+mode levels roll and pitch when the arrow keys are centered. Throttle is
+collective thrust, not an altitude hold. Acro mode commands body rates and does
+not level the vehicle.
 
 A gamepad, when the browser exposes one, uses the left stick, the right-stick
-X axis, and the triggers for the same commands.
+X axis, and the triggers. The dead zone is adjustable. Touch screens get two
+virtual sticks: throttle with yaw, and pitch with roll.
 
 ## Deploy
 
@@ -164,8 +168,10 @@ The repository homepage field is still unset. An anonymous
 
 ## Known limitations
 
-- One approximate Flatiron extract. Facades and setbacks are drawn, not surveyed.
-- Contact is an inelastic sphere against the ground and extruded footprints. There is no friction or landing gear. The drawn setback is not a separate collision volume.
+- Coastal Base 01 is a fictional field. The bay is a solid surface, not a fluid. Mountain collision is a ridge volume, not a surveyed terrain mesh.
+- The default flight aircraft is EXPLORER-4 only. Survey and research classes are not built.
+- Contact is an inelastic sphere. There is no friction or landing-gear force. Motor lag is a first-order stand-in, not an electrical model.
+- The Flatiron extract remains available to the train episode. Facades there are drawn, not surveyed.
 - No motor dynamics, wind, sensor noise, or estimator.
 - The attitude controller is proportional attitude and rate. It has no integral term.
 - Landing success is a fixed set of limits on that episode, not a learned policy.
