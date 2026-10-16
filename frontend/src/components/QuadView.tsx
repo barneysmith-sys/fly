@@ -10,6 +10,8 @@ type QuadViewProps = {
 
 /** Screen metres of arrow when thrust equals weight. Not a physical length. */
 const ARROW_METRES_AT_WEIGHT = 0.35;
+/** Drawing scale only. Altitude is not multiplied by this. */
+const AIRFRAME_DRAWING_SCALE = 1.5;
 
 type ViewState = {
   altitudeM: number;
@@ -39,9 +41,9 @@ export function QuadView({ altitudeM, targetAltitudeM, thrustN, weightN }: QuadV
     const scene = new THREE.Scene();
     scene.background = new THREE.Color(0x0c1016);
 
-    const camera = new THREE.PerspectiveCamera(38, 1, 0.05, 40);
-    camera.position.set(3.15, 1.65, 3.35);
-    camera.lookAt(0, 1.15, 0);
+    const camera = new THREE.PerspectiveCamera(40, 1, 0.05, 40);
+    camera.position.set(2.35, 1.28, 2.5);
+    camera.lookAt(0, 1.05, 0);
 
     const renderer = new THREE.WebGLRenderer({ antialias: true });
     renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2));
@@ -73,7 +75,7 @@ export function QuadView({ altitudeM, targetAltitudeM, thrustN, weightN }: QuadV
     scene.add(vehicle.drop);
 
     const target = new THREE.Mesh(
-      new THREE.TorusGeometry(0.62, 0.004, 8, 64),
+      new THREE.TorusGeometry(0.82, 0.005, 8, 64),
       new THREE.MeshBasicMaterial({ color: 0xc4a36a }),
     );
     target.rotation.x = Math.PI / 2;
@@ -146,7 +148,7 @@ export function QuadView({ altitudeM, targetAltitudeM, thrustN, weightN }: QuadV
       <p className="stage-caption">
         {altitudeM === null
           ? "No trace yet. The vehicle stays on the ground until the model returns samples."
-          : `Height ${altitudeM.toFixed(3)} m is this sample’s altitude. Grid is 0.5 m. Arrow length is ${ARROW_METRES_AT_WEIGHT} m on screen when thrust equals weight. Body size is not in the equations.`}
+          : `Height ${altitudeM.toFixed(3)} m is this sample’s altitude. Grid is 0.5 m. The airframe is drawn at ${AIRFRAME_DRAWING_SCALE}× and is not in the equations. Arrow length is ${ARROW_METRES_AT_WEIGHT} m on screen when thrust equals weight.`}
       </p>
     </div>
   );
@@ -178,30 +180,32 @@ function buildVehicle(): {
   dropPositions: Float32Array;
 } {
   const group = new THREE.Group();
+  const airframe = new THREE.Group();
+  airframe.scale.setScalar(AIRFRAME_DRAWING_SCALE);
   const bodyMaterial = new THREE.MeshStandardMaterial({
-    color: 0x9aa6b1,
-    roughness: 0.55,
-    metalness: 0.15,
-  });
-  const armMaterial = new THREE.MeshStandardMaterial({
-    color: 0x6c7782,
-    roughness: 0.62,
-    metalness: 0.12,
-  });
-  const motorMaterial = new THREE.MeshStandardMaterial({
-    color: 0x3e474f,
-    roughness: 0.45,
+    color: 0xd5dde6,
+    roughness: 0.42,
     metalness: 0.2,
   });
+  const armMaterial = new THREE.MeshStandardMaterial({
+    color: 0xb7c2cc,
+    roughness: 0.5,
+    metalness: 0.16,
+  });
+  const motorMaterial = new THREE.MeshStandardMaterial({
+    color: 0x6a7580,
+    roughness: 0.4,
+    metalness: 0.25,
+  });
   const discMaterial = new THREE.MeshBasicMaterial({
-    color: 0xc5ced6,
+    color: 0xe7eef3,
     transparent: true,
-    opacity: 0.55,
+    opacity: 0.82,
     side: THREE.DoubleSide,
   });
 
   const body = new THREE.Mesh(new THREE.BoxGeometry(0.16, 0.036, 0.16), bodyMaterial);
-  group.add(body);
+  airframe.add(body);
 
   const armGeometry = new THREE.BoxGeometry(0.18, 0.012, 0.022);
   const motorGeometry = new THREE.CylinderGeometry(0.02, 0.02, 0.022, 16);
@@ -210,15 +214,16 @@ function buildVehicle(): {
     const arm = new THREE.Mesh(armGeometry, armMaterial);
     arm.position.set(Math.cos(angle) * 0.15, 0, Math.sin(angle) * 0.15);
     arm.rotation.y = -angle;
-    group.add(arm);
+    airframe.add(arm);
     const motor = new THREE.Mesh(motorGeometry, motorMaterial);
     motor.position.set(Math.cos(angle) * 0.25, 0.01, Math.sin(angle) * 0.25);
-    group.add(motor);
+    airframe.add(motor);
     const disc = new THREE.Mesh(discGeometry, discMaterial);
     disc.position.set(Math.cos(angle) * 0.25, 0.026, Math.sin(angle) * 0.25);
     disc.rotation.x = -Math.PI / 2;
-    group.add(disc);
+    airframe.add(disc);
   }
+  group.add(airframe);
 
   const arrow = new THREE.Group();
   const shaft = new THREE.Mesh(
