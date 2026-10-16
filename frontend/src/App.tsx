@@ -1,30 +1,62 @@
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
+import { BootSequence } from "./components/BootSequence";
+import { ChromeContext, type ChromeState } from "./chrome";
 import { AutonomyPage } from "./pages/AutonomyPage";
 import { FlightPage } from "./pages/FlightPage";
+import { FlyPage } from "./pages/FlyPage";
 import { LabPage } from "./pages/LabPage";
 import { LearnPage } from "./pages/LearnPage";
 import { ProgressPage } from "./pages/ProgressPage";
 import { SystemsPage } from "./pages/SystemsPage";
+import { TrainPage } from "./pages/TrainPage";
+import type { District } from "./sim/district";
+import { manhattanDistrict } from "./sim/district";
+import { NOMINAL_VEHICLE, type VehicleParams } from "./sim/vehicle";
 
-const SECTIONS = [
-  ["flight", "Flight"],
+const NAV = [
+  ["fly", "Fly"],
   ["learn", "Learn"],
+  ["train", "Train"],
   ["lab", "Lab"],
-  ["autonomy", "Autonomy"],
-  ["systems", "Systems"],
-  ["progress", "Progress"],
 ] as const;
 
-type SectionId = (typeof SECTIONS)[number][0];
+type NavId = (typeof NAV)[number][0];
+type SectionId = NavId | "vertical" | "systems" | "progress" | "control";
+
+type Ready = {
+  district: District;
+  vehicle: VehicleParams;
+};
+
+const BOOT_KEY = "fly.boot.v1";
 
 function sectionFromHash(): SectionId {
   const raw = window.location.hash.replace(/^#/, "");
-  const match = SECTIONS.find(([id]) => id === raw);
-  return match ? match[0] : "flight";
+  if (raw === "" || raw === "fly" || raw === "flight") {
+    return "fly";
+  }
+  if (raw === "train" || raw === "autonomy") {
+    return "train";
+  }
+  if (raw === "learn" || raw === "lab" || raw === "vertical" || raw === "systems" || raw === "progress" || raw === "control") {
+    return raw;
+  }
+  return "fly";
+}
+
+function rememberedReady(): Ready | null {
+  if (window.sessionStorage.getItem(BOOT_KEY) !== "1") {
+    return null;
+  }
+  return { district: manhattanDistrict(), vehicle: NOMINAL_VEHICLE };
 }
 
 export function App() {
   const [section, setSection] = useState<SectionId>(sectionFromHash);
+  const [ready, setReady] = useState<Ready | null>(rememberedReady);
+  const [chrome, setChrome] = useState<ChromeState>({ status: "Ready", mode: "6-DOF" });
+  const publish = useCallback((next: ChromeState) => setChrome(next), []);
+  const onReady = useCallback((next: Ready) => setReady(next), []);
 
   useEffect(() => {
     const onHash = () => setSection(sectionFromHash());
@@ -32,28 +64,104 @@ export function App() {
     return () => window.removeEventListener("hashchange", onHash);
   }, []);
 
+  useEffect(() => {
+    if (section === "fly" || section === "train") {
+      return;
+    }
+    const labels: Record<Exclude<SectionId, "fly" | "train">, ChromeState> = {
+      learn: { status: "Lesson", mode: "Instruction" },
+      lab: { status: "1D plant", mode: "Python API" },
+      vertical: { status: "Replay", mode: "PID altitude" },
+      systems: { status: "Notes", mode: "Not simulated" },
+      progress: { status: "Local record", mode: "Hover lesson" },
+      control: { status: "Classical control", mode: "PID" },
+    };
+    setChrome(labels[section]);
+  }, [section]);
+
+  if (!ready) {
+    return (
+      <div className="app">
+        <BootSequence onReady={onReady} />
+      </div>
+    );
+  }
+
+  const navCurrent: NavId | null =
+    section === "fly" || section === "learn" || section === "train" || section === "lab" ? section : null;
+
   return (
-    <div className="app">
-      <header className="topbar">
-        <div>
-          <p className="eyebrow">Training center · vertical dynamics</p>
-          <h1>FLY</h1>
-        </div>
-        <p className="muted">1D model · v0.2</p>
-      </header>
-      <nav className="nav" aria-label="Training center">
-        {SECTIONS.map(([id, label]) => (
-          <a key={id} href={`#${id}`} aria-current={section === id ? "page" : undefined} onClick={() => setSection(id)}>
-            {label}
-          </a>
-        ))}
-      </nav>
-      {section === "flight" ? <FlightPage /> : null}
-      {section === "learn" ? <LearnPage /> : null}
-      {section === "lab" ? <LabPage /> : null}
-      {section === "autonomy" ? <AutonomyPage /> : null}
-      {section === "systems" ? <SystemsPage /> : null}
-      {section === "progress" ? <ProgressPage /> : null}
-    </div>
+    <ChromeContext.Provider value={publish}>
+      <div className="app">
+        <header className="topbar">
+          <div>
+            <p className="eyebrow">FLY / Flight systems</p>
+            <h1>FLY</h1>
+          </div>
+          <p className="chrome" aria-label="Simulation status">
+            <span>{ready.district.label}</span>
+            <span>{chrome.status}</span>
+            <span>{chrome.mode}</span>
+          </p>
+          <details className="settings">
+            <summary>Settings</summary>
+            <div className="settings-panel">
+              <p className="field-hint">
+                Civilian educational simulator. The city view integrates a 6-DOF rigid body in the browser. The lab and
+                the hover lesson call the Python 1D plant.
+              </p>
+              <a href="#vertical">Vertical hover replay</a>
+              <a href="#control">Why the PID is not AI</a>
+              <a href="#systems">Systems notes</a>
+              <a href="#progress">Lesson record</a>
+            </div>
+          </details>
+        </header>
+        <nav className="nav" aria-label="FLY">
+          {NAV.map(([id, label]) => (
+            <a
+              key={id}
+              href={`#${id}`}
+              aria-current={navCurrent === id ? "page" : undefined}
+              onClick={() => setSection(id)}
+            >
+              {label}
+            </a>
+          ))}
+        </nav>
+        {section === "fly" ? <FlyPage district={ready.district} /> : null}
+        {section === "learn" ? (
+          <div className="section-scroll">
+            <LearnPage />
+          </div>
+        ) : null}
+        {section === "train" ? <TrainPage district={ready.district} /> : null}
+        {section === "lab" ? (
+          <div className="section-scroll">
+            <LabPage />
+          </div>
+        ) : null}
+        {section === "vertical" ? (
+          <div className="section-scroll">
+            <FlightPage />
+          </div>
+        ) : null}
+        {section === "systems" ? (
+          <div className="section-scroll">
+            <SystemsPage />
+          </div>
+        ) : null}
+        {section === "progress" ? (
+          <div className="section-scroll">
+            <ProgressPage />
+          </div>
+        ) : null}
+        {section === "control" ? (
+          <div className="section-scroll">
+            <AutonomyPage />
+          </div>
+        ) : null}
+      </div>
+    </ChromeContext.Provider>
   );
 }

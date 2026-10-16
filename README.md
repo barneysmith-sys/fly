@@ -1,60 +1,59 @@
 # FLY
 
-Educational drone-engineering software. The flight model is AEROSIM. Version
-0.2 keeps the verified vertical point-mass plant and adds a training-center
-shell around it.
+Learn to fly. Teach machines to fly.
 
-The plant, the PID, open-loop thrust, the simulation state, and the interface
-are separate. Every altitude, velocity, acceleration, and thrust on screen
-comes from a Python trace. The page does not integrate a second copy of the
-physics.
+FLY is an open-source educational platform for civilian FPV flight simulation,
+drone engineering, and autonomous landing experiments. It is not a weapon
+system and it is not a navigation product.
 
-## What is modeled
+The city view is a browser rigid-body simulator. The lab is a separate,
+tested Python model of vertical motion. They are not the same integrator.
 
-A point mass on a vertical line, thrust positive upward, gravity downward,
-optional quadratic drag, and a thrust limit. Two command paths exist:
+![Chase view at hover in the fictional Manhattan district. Altitude 2.00 m, thrust equal to weight at 6.37 N.](docs/images/fly-chase.png)
 
-- PID altitude hold with gravity feedforward. The shipped scenario starts at
-  rest on the ground and is commanded to 2 m. Its integral gain is zero.
-- Open-loop constant thrust. The PID terms in those samples are zero because
-  the PID was not evaluated.
+## What you can do
 
-The equations, the open-loop path, the acceleration reported on each sample,
-and the teaching thresholds are in [docs/MODEL.md](docs/MODEL.md). A
-plain-language units guide is in [docs/UNITS.md](docs/UNITS.md).
-
-## Training center
-
-The interface has six sections.
-
-| Section | What works in this version |
+| Environment | What works |
 | --- | --- |
-| Flight | Replays the 2 m hover. The camera shows altitude only. |
-| Learn | One lesson, “Why a hover holds.” The prediction is checked against the returned trace. |
-| Lab | Mass, gravity, and constant thrust, plus the experiments the 1D plant can run. |
-| Autonomy | The PID pipeline, labeled as classical control. |
-| Systems | Component descriptions. None of those parts are in the integrator. |
-| Progress | Beginner, then Flight Fundamentals after the hover lesson matches. |
+| FLY | Fly a 6-DOF quadcopter in a fictional Manhattan district. FPV, chase, and external cameras. Keyboard and gamepad input. Pause, resume, and reset. Ground and building contact. Live telemetry from the integrator. A rules-based instructor. |
+| LEARN | A hover lesson checked against the Python trace, and a pitch lesson checked against the rigid-body force equation. Other topics point at a real experiment or say they are not lessons yet. |
+| TRAIN | Deterministic landing episodes on the marked roof. Position descent and vertical-only descent. Position error, touchdown speed, and a success count of episodes you actually run. |
+| LAB | The Python 1D plant: mass, thrust, drag, and the named experiments. |
 
-FPV cameras, stabilized and acro modes, keyboard rate commands, 6-DOF motion,
-sensor noise, wind, and learned controllers are not implemented. Those
-sections say “Coming in a future milestone” instead of imitating them.
+Washington, London, and San Francisco are listed and are not built. No policy
+is trained. The instructor is not a language model.
 
-## What is not modeled
+## Models
 
-Attitude, horizontal motion, motor dynamics, wind, sensors, estimators, and
-navigation. None of those appear as simulated channels.
-
-## Layout
+The 6-DOF plant is documented in [docs/RIGID_BODY.md](docs/RIGID_BODY.md).
+World axes are x east, y north, z up. Body thrust is along body z. The step is
 
 ```
-aerosim/physics       forces, RK4, parameter checks
-aerosim/control       PID altitude law, gain formulas, constant thrust
-aerosim/simulation    state, runner, 2 m scenario, experiments
-aerosim/api           HTTP access to a run and to the experiment catalog
-frontend              Training center
-tests                 free fall, hover, step response, saturation, open loop
+m*a = R(q)*[0,0,T] + [0,0,-m*g] - c_d*|v|*v
+I*alpha = tau - omega × (I*omega)
+q_next = normalize(q ⊗ Exp(omega * dt))
+p_next = p + v*dt + 0.5*a*dt*dt
 ```
+
+The 1D plant is documented in [docs/MODEL.md](docs/MODEL.md). Units are in
+[docs/UNITS.md](docs/UNITS.md). The shipped vertical case is a 1 kg vehicle
+commanded to 2 m with a PID and gravity feedforward. That PID is classical
+control, not artificial intelligence.
+
+## Architecture
+
+```
+aerosim/physics       1D forces and RK4
+aerosim/control       PID altitude law and constant thrust
+aerosim/simulation    1D state, runner, experiments
+aerosim/api           HTTP access to a run and the experiment catalog
+frontend/src/sim      6-DOF rigid body, mixer, collision, landing, instructor
+frontend/src/pages    FLY, LEARN, TRAIN, LAB
+docs                  Model notes
+```
+
+Rendering, pilot input, the instructor, and the landing policy call the rigid
+body. They do not invent a second set of flight numbers.
 
 ## Run the tests
 
@@ -64,23 +63,18 @@ python3 -m venv .venv
 .venv/bin/pytest
 ```
 
-The free-fall and hover tests compare the integrator with the closed-form
-constant-acceleration solution. The step-response test compares a PD loop
-with the critically damped continuous solution and checks that the error
-falls when the timestep is reduced. The experiment catalog runs each named
-case and checks that case’s own findings.
-
-## Run the 2 m hover
-
 ```bash
-.venv/bin/python -m aerosim
+cd frontend
+npm install
+npm run test:sim
 ```
 
-That prints the summary of one integration. It does not start the interface.
+## Run locally
 
-## Training center
+The city flight and the landing episodes run in the browser without Python.
+The lab and the hover lesson need the API.
 
-Terminal A:
+Terminal A, for the lab and the hover lesson:
 
 ```bash
 .venv/bin/python -m aerosim.api.server
@@ -94,20 +88,74 @@ npm install
 npm run dev
 ```
 
-Open the URL Vite prints. Flight loads `GET /api/scenarios/hover-2m`. The lab
-and the hover lesson send configs to `POST /api/simulate`. Named experiments
-are `GET /api/experiments` and `GET /api/experiments/{id}`. If the API is
-down, the page reports the error and leaves the readouts empty.
+Open the URL Vite prints. The dev server proxies `/api` to
+`http://127.0.0.1:8000`.
 
-GitHub Pages cannot run this Python model. A static host will not produce a
-trace.
+Print one 2 m hover without the interface:
 
-## Milestone
+```bash
+.venv/bin/python -m aerosim
+```
 
-The 2 m hover passes when, from t = 8 s onward, altitude stays within 0.02 m
-of 2 m and vertical speed stays within 0.05 m/s, thrust stays inside its
-bounds, and the vehicle never goes below the ground. That band scores the
-hover. It does not score free fall or an arbitrary thrust.
+## Flight controls
 
-The next physics milestone is a documented 6-DOF quadcopter. Until that
-exists, FLY does not offer FPV flight.
+W and S pitch, A and D roll, Q and E yaw, Shift and Ctrl (or Z) change
+collective thrust, P pauses, R resets. Stabilized mode levels roll and pitch
+when the sticks are centered. Throttle is collective thrust, not an altitude
+hold. Acro mode commands body rates and does not level the vehicle.
+
+A gamepad, when the browser exposes one, uses the left stick, the right-stick
+X axis, and the triggers for the same commands.
+
+## Deploy
+
+Vercel can host the static frontend. `vercel.json` builds `frontend` and
+publishes `frontend/dist`. FLY and TRAIN work on that host because the rigid
+body runs in the browser.
+
+The Python API is a separate process. Vercel does not run it. Host that
+process on a machine that can stay up, and point the frontend at it only when
+you have a real API origin. Until then, the lab and the hover lesson report
+that the API is unavailable.
+
+This repository does not yet have a durable public URL, and the GitHub
+homepage field is unset. Do not treat a GitHub Pages site as the simulator:
+Pages cannot execute the Python model, and a root Pages deployment has no
+application entrypoint. An anonymous `vercel deploy --temporary` preview
+expires and is not a homepage.
+
+## Roadmap
+
+1. Motor lag and a documented sensor model, still separate from the truth state.
+2. A scored manual landing in the same district.
+3. One more city only after this district is solid.
+4. A learning loop that writes real episode returns. Not before the
+   deterministic landing controller is the baseline.
+
+## Engineering principles
+
+- Do not draw motion the integrator did not produce.
+- Do not show a training curve, success rate, or model result that was not computed.
+- Label approximate geography as fictional.
+- Keep the 1D plant and the 6-DOF plant documented as different models.
+- Say when a curriculum topic is not a lesson yet.
+
+## Known limitations
+
+- One fictional district. Buildings are procedural boxes, not a city survey.
+- Contact is an inelastic sphere against boxes. There is no friction or landing gear.
+- No motor dynamics, wind, sensor noise, or estimator.
+- The attitude controller is proportional attitude and rate. It has no integral term.
+- Landing success is a fixed set of limits on that episode, not a learned policy.
+- The instructor answers five questions from the current state with fixed rules.
+- Lesson progress for the hover module is stored in this browser only.
+- No license has been chosen for this repository.
+
+## Suggested GitHub topics
+
+These match the repository as it is: `drone-simulator`, `fpv`, `quadcopter`,
+`robotics`, `flight-dynamics`, `autonomous-systems`, `aerospace`,
+`typescript`, `python`.
+
+`reinforcement-learning` does not belong yet. Nothing in the repository
+trains a policy.

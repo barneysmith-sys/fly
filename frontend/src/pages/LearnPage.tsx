@@ -6,50 +6,71 @@ import { TraceChart } from "../components/TraceChart";
 import { Transport } from "../components/Transport";
 import { recordLesson } from "../progress";
 import type { ModelDocument, Motion, SimulationResponse } from "../types";
+import { PitchLesson } from "./PitchLesson";
 import { usePlayback } from "../usePlayback";
 
 const MODULES = [
   {
     id: "flight",
-    title: "Fundamentals of Flight",
+    title: "How quadcopters fly",
     body: "Weight, thrust, and why a hover is an equilibrium.",
-    live: true,
+    kind: "hover",
   },
   {
-    id: "components",
-    title: "Drone Components and Electronics",
-    body: "Motors, ESCs, the flight controller, and the power path.",
-    live: false,
+    id: "motors",
+    title: "Motors and propellers",
+    body: "The 6-DOF mixer treats each motor as an immediate thrust. There is no motor lag, propeller model, or ESC.",
+    kind: "later",
   },
   {
-    id: "dynamics",
-    title: "Flight Dynamics and Mathematics",
-    body: "Translational dynamics, rotational dynamics, and frames.",
-    live: false,
+    id: "axes",
+    title: "Pitch, roll, and yaw",
+    body: "Tilting the thrust vector.",
+    kind: "pitch",
+  },
+  {
+    id: "physics",
+    title: "Flight physics",
+    body: "The lab runs the documented 1D experiments: free fall, hover equilibrium, step response, saturation, overshoot, integral residual, and disturbance recovery.",
+    kind: "link",
+    href: "#lab",
+    linkLabel: "Open the lab",
   },
   {
     id: "pid",
-    title: "Flight Controllers and PID",
-    body: "How a feedback law turns altitude error into thrust.",
-    live: false,
-  },
-  {
-    id: "sensors",
-    title: "Sensors and State Estimation",
-    body: "Why a noisy measurement is not the same object as the true state.",
-    live: false,
+    title: "PID controllers",
+    body: "The 2 m hover is a classical PID with gravity feedforward. That is control theory. It is not a learned policy.",
+    kind: "link",
+    href: "#control",
+    linkLabel: "Open the control notes",
   },
   {
     id: "fpv",
-    title: "FPV Systems and Manual Flight",
-    body: "Rate commands, stabilized mode, and acro mode.",
-    live: false,
+    title: "FPV flight",
+    body: "Stabilized and acro flight are live in FLY. A scored manual-flight lesson is not implemented, so this topic does not record progress.",
+    kind: "link",
+    href: "#fly",
+    linkLabel: "Open FLY",
   },
   {
-    id: "ai",
-    title: "AI, Robotics, and Autonomous Flight",
-    body: "Estimation, planning, and the difference between control and learning.",
-    live: false,
+    id: "sensors",
+    title: "Sensors and navigation",
+    body: "The controllers read the true state. No IMU, GPS, barometer, or estimator is in the integrator.",
+    kind: "later",
+  },
+  {
+    id: "landing",
+    title: "Autonomous landing",
+    body: "TRAIN runs a deterministic position descent and a vertical-only descent on the same rigid body. Success is scored from that episode.",
+    kind: "link",
+    href: "#train",
+    linkLabel: "Open TRAIN",
+  },
+  {
+    id: "rl",
+    title: "Reinforcement learning fundamentals",
+    body: "No policy is trained. There is no reward log, success rate from learning, or model checkpoint.",
+    kind: "later",
   },
 ] as const;
 
@@ -64,7 +85,7 @@ export function LearnPage() {
       <aside className="panel">
         <header className="panel-head">
           <h2>Academy</h2>
-          <p>7 modules</p>
+          <p>9 topics</p>
         </header>
         <div className="stack">
           {MODULES.map((item, index) => (
@@ -80,9 +101,24 @@ export function LearnPage() {
           ))}
         </div>
       </aside>
-      {selected.live ? (
-        <HoverLesson />
-      ) : (
+      {selected.kind === "hover" ? <HoverLesson /> : null}
+      {selected.kind === "pitch" ? <PitchLesson /> : null}
+      {selected.kind === "link" ? (
+        <section className="panel">
+          <header className="panel-head">
+            <h2>{selected.title}</h2>
+            <p>Experiment, not a scored lesson</p>
+          </header>
+          <p className="end-state">{selected.body}</p>
+          <p className="milestone">Opening this topic is not recorded as progress.</p>
+          <div className="form-actions">
+            <a className="text-link" href={selected.href}>
+              {selected.linkLabel}
+            </a>
+          </div>
+        </section>
+      ) : null}
+      {selected.kind === "later" ? (
         <section className="panel">
           <header className="panel-head">
             <h2>{selected.title}</h2>
@@ -90,11 +126,11 @@ export function LearnPage() {
           </header>
           <p className="end-state">{selected.body}</p>
           <p className="milestone">
-            Coming in a future milestone. This module has no interactive lesson yet, and opening it is not recorded as
+            Coming in a future milestone. This topic has no interactive lesson yet, and opening it is not recorded as
             progress.
           </p>
         </section>
-      )}
+      ) : null}
     </div>
   );
 }
