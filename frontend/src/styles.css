@@ -872,15 +872,21 @@ code {
   top: 56px;
   left: 12px;
   font-family: "IBM Plex Mono", ui-monospace, monospace;
-  font-size: 0.68rem;
-  letter-spacing: 0.1em;
+  font-size: 12px;
+  letter-spacing: 0.08em;
   text-transform: uppercase;
-  color: var(--muted);
+  color: var(--ink);
+  background: rgba(8, 13, 18, 0.86);
+  border: 1px solid var(--line);
+  padding: 6px 10px;
 }
 
 .fly-toggles {
   top: 54px;
   right: 12px;
+  background: rgba(8, 13, 18, 0.86);
+  border: 1px solid var(--line);
+  padding: 4px 8px;
 }
 
 .fly-toggles label {

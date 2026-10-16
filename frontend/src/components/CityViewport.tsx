@@ -35,8 +35,8 @@ export function CityViewport({ district, poseRef, cameraMode, renderRef }: CityV
     }
     let disposed = false;
     const scene = new THREE.Scene();
-    scene.background = new THREE.Color(0x9aabba);
-    scene.fog = new THREE.Fog(0x9aabba, 220, 780);
+    scene.background = new THREE.Color(0xa9b8c6);
+    scene.fog = new THREE.Fog(0xa9b8c6, 280, 920);
 
     const camera = new THREE.PerspectiveCamera(52, 1, 0.05, 1200);
     camera.up.set(0, 0, 1);
@@ -45,16 +45,17 @@ export function CityViewport({ district, poseRef, cameraMode, renderRef }: CityV
     renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 1.75));
     renderer.outputColorSpace = THREE.SRGBColorSpace;
     renderer.toneMapping = THREE.ACESFilmicToneMapping;
-    renderer.toneMappingExposure = 1.05;
+    renderer.toneMappingExposure = 1.08;
     renderer.shadowMap.enabled = true;
     renderer.shadowMap.type = THREE.PCFSoftShadowMap;
     mount.appendChild(renderer.domElement);
 
-    const sky = new THREE.HemisphereLight(0xd7e4ef, 0x6a7380, 1.05);
+    const sky = new THREE.HemisphereLight(0xe7eef5, 0x8e9890, 1.28);
     sky.position.set(0, 0, 1);
     scene.add(sky);
-    const sun = new THREE.DirectionalLight(0xfff2e2, 2.35);
-    sun.position.set(-120, -160, 210);
+    // High sun from the northeast, so the south-facing launch street stays readable.
+    const sun = new THREE.DirectionalLight(0xfff4e4, 2.05);
+    sun.position.set(190, 230, 380);
     sun.castShadow = true;
     sun.shadow.mapSize.set(2048, 2048);
     sun.shadow.camera.left = -260;
@@ -62,17 +63,19 @@ export function CityViewport({ district, poseRef, cameraMode, renderRef }: CityV
     sun.shadow.camera.top = 260;
     sun.shadow.camera.bottom = -260;
     sun.shadow.camera.near = 20;
-    sun.shadow.camera.far = 620;
-    sun.shadow.bias = -0.00035;
+    sun.shadow.camera.far = 900;
+    sun.shadow.bias = -0.0002;
+    sun.shadow.normalBias = 0.04;
+    sun.shadow.radius = 2;
     scene.add(sun);
     scene.add(sun.target);
-    const fill = new THREE.DirectionalLight(0xc5d4e4, 0.9);
-    fill.position.set(140, 80, 90);
+    const fill = new THREE.DirectionalLight(0xc9d7e6, 0.62);
+    fill.position.set(-170, -50, 90);
     scene.add(fill);
 
     const ground = new THREE.Mesh(
       new THREE.PlaneGeometry(900, 900),
-      new THREE.MeshStandardMaterial({ color: 0x3c444c, roughness: 0.94, metalness: 0 }),
+      new THREE.MeshStandardMaterial({ color: 0x4e565e, roughness: 0.94, metalness: 0 }),
     );
     ground.position.z = 0;
     ground.receiveShadow = true;
@@ -259,8 +262,9 @@ function paintUvs(geometry: THREE.BufferGeometry) {
     } else {
       const nx = Math.abs(normal.getX(index));
       const ny = Math.abs(normal.getY(index));
-      uv[index * 2] = (nx > ny ? y : x) * 0.14;
-      uv[index * 2 + 1] = z * 0.16;
+      // One repeat is about 12.5 m: four bays and four floors.
+      uv[index * 2] = (nx > ny ? y : x) * 0.08;
+      uv[index * 2 + 1] = z * 0.08;
     }
   }
   geometry.setAttribute("uv", new THREE.BufferAttribute(uv, 2));
@@ -273,30 +277,46 @@ function styleTexture(style: BuildingStyle, cache: Map<BuildingStyle, THREE.Canv
     return cached;
   }
   const palette = {
-    masonry: ["#c8bba8", "#2c3642", "#b3a794"],
-    brick: ["#8d5346", "#1b2430", "#a86452"],
-    limestone: ["#e4dcd0", "#3c4654", "#d4cdc2"],
-    glass: ["#8ea6b8", "#1d2833", "#b7c8d4"],
+    masonry: ["#cfc3b0", "#24303c", "#b7ab9a", "#e4dacb"],
+    brick: ["#8d5346", "#1b2430", "#6e3d34", "#c48472"],
+    limestone: ["#e7dfd4", "#3a4452", "#d5cdc2", "#f4efe8"],
+    glass: ["#7f97a8", "#163040", "#d5e4ee", "#9eb4c4"],
   }[style];
   const canvas = document.createElement("canvas");
-  canvas.width = 128;
-  canvas.height = 128;
+  canvas.width = 256;
+  canvas.height = 256;
   const context = canvas.getContext("2d");
   if (!context) {
     throw new Error("canvas is unavailable");
   }
   context.fillStyle = palette[0];
-  context.fillRect(0, 0, 128, 128);
-  context.fillStyle = palette[2];
-  for (let row = 0; row < 4; row += 1) {
-    context.fillRect(0, row * 32, 128, 3);
+  context.fillRect(0, 0, 256, 256);
+  const floors = 4;
+  const floorH = 256 / floors;
+  for (let row = 0; row < floors; row += 1) {
+    const y = row * floorH;
+    context.fillStyle = palette[2];
+    context.fillRect(0, y, 256, 7);
+    context.fillStyle = palette[3];
+    context.fillRect(0, y + floorH - 5, 256, 3);
+  }
+  context.fillStyle = palette[0];
+  for (let column = 0; column < 4; column += 1) {
+    context.fillRect(column * 64, 0, 8, 256);
   }
   context.fillStyle = palette[1];
-  for (let row = 0; row < 4; row += 1) {
+  for (let row = 0; row < floors; row += 1) {
     for (let column = 0; column < 4; column += 1) {
-      context.fillRect(8 + column * 32, 8 + row * 32, 16, 18);
+      const x = 16 + column * 64;
+      const y = 14 + row * floorH;
+      context.fillRect(x, y, 34, 36);
+      context.fillStyle = palette[3];
+      context.fillRect(x + 2, y + 2, 10, 8);
+      context.fillStyle = palette[1];
     }
   }
+  context.fillStyle = palette[2];
+  context.fillRect(0, 248, 256, 8);
   const texture = new THREE.CanvasTexture(canvas);
   texture.colorSpace = THREE.SRGBColorSpace;
   texture.wrapS = THREE.RepeatWrapping;
@@ -306,7 +326,8 @@ function styleTexture(style: BuildingStyle, cache: Map<BuildingStyle, THREE.Canv
   return texture;
 }
 
-function buildRoofGear(buildings: Footprint[]): THREE.InstancedMesh {
+function buildRoofGear(buildings: Footprint[]): THREE.Group {
+  const group = new THREE.Group();
   const hosts = buildings.filter((building) => building.h > 20 && !building.pad);
   const geometry = new THREE.BoxGeometry(1, 1, 1);
   geometry.translate(0, 0, 0.5);
@@ -315,8 +336,9 @@ function buildRoofGear(buildings: Footprint[]): THREE.InstancedMesh {
   const dummy = new THREE.Object3D();
   hosts.forEach((building, index) => {
     const center = centroid(building.ring);
-    dummy.position.set(center.x, center.y, building.h);
-    dummy.scale.set(3.2, 2.1, 1.4);
+    const shift = (index % 5) - 2;
+    dummy.position.set(center.x + shift * 2.2, center.y + ((index % 3) - 1) * 1.6, building.h);
+    dummy.scale.set(3.4, 2.2, building.h > 48 ? 2.6 : 1.5);
     dummy.rotation.set(0, 0, 0);
     dummy.updateMatrix();
     mesh.setMatrixAt(index, dummy.matrix);
@@ -324,7 +346,28 @@ function buildRoofGear(buildings: Footprint[]): THREE.InstancedMesh {
   mesh.count = hosts.length;
   mesh.instanceMatrix.needsUpdate = true;
   mesh.castShadow = true;
-  return mesh;
+  group.add(mesh);
+
+  const tanks = buildings.filter((building) => !building.pad && building.style !== "glass" && building.h > 16 && building.h < 55);
+  const tankGeo = new THREE.CylinderGeometry(1, 1, 1, 8);
+  tankGeo.rotateX(Math.PI / 2);
+  tankGeo.translate(0, 0, 0.5);
+  const tankMat = new THREE.MeshStandardMaterial({ color: 0x6d5840, roughness: 0.58, metalness: 0.18 });
+  const tankMesh = new THREE.InstancedMesh(tankGeo, tankMat, Math.max(tanks.length, 1));
+  tanks.forEach((building, index) => {
+    const center = centroid(building.ring);
+    const shift = (index % 4) - 1.5;
+    dummy.position.set(center.x - shift * 3.2, center.y + 2.4, building.h);
+    dummy.scale.set(1.5, 1.5, 2.2);
+    dummy.rotation.set(0, 0, 0);
+    dummy.updateMatrix();
+    tankMesh.setMatrixAt(index, dummy.matrix);
+  });
+  tankMesh.count = tanks.length;
+  tankMesh.instanceMatrix.needsUpdate = true;
+  tankMesh.castShadow = true;
+  group.add(tankMesh);
+  return group;
 }
 
 function buildStreets(streets: Street[]): THREE.Group {
@@ -350,9 +393,9 @@ function buildStreets(streets: Street[]): THREE.Group {
     ribbon(street.line, Math.max(6, street.width - 3), 0.045, road);
     dashes(street.line, street.width, marks);
   }
-  group.add(meshFromPositions(sidewalk, 0xb7b1a6, 0.92));
-  group.add(meshFromPositions(road, 0x3a4148, 0.9));
-  group.add(meshFromPositions(marks, 0xd5d0c6, 0.6));
+  group.add(meshFromPositions(sidewalk, 0xc4bdb0, 0.92));
+  group.add(meshFromPositions(road, 0x4c555d, 0.9));
+  group.add(meshFromPositions(marks, 0xe4dfd4, 0.55));
   return group;
 }
 

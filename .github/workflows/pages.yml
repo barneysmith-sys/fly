@@ -1,3 +1,9 @@
+# Pages currently publishes this branch root (legacy). `.nojekyll` plus the
+# committed `index.html`, `404.html`, `favicon.svg`, and `assets/` are what
+# https://barneysmith-sys.github.io/fly/ serves. Refresh those files with
+# `GITHUB_PAGES=true npm run build` and `node scripts/sync-pages.mjs`.
+# This workflow builds the same app. It becomes the live source only after
+# the repository Pages setting is switched to GitHub Actions.
 name: Deploy FLY to GitHub Pages
 
 on:

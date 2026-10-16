@@ -120,13 +120,28 @@ process on a machine that can stay up, and point the frontend at it only when
 you have a real API origin. Until then, the lab and the hover lesson report
 that the API is unavailable.
 
-GitHub Pages serves the built frontend from
+The public site is
 [https://barneysmith-sys.github.io/fly/](https://barneysmith-sys.github.io/fly/).
-The workflow in `.github/workflows/pages.yml` builds `frontend` with
-`base: /fly/` and publishes that output. The README stays the repository
-documentation. The Python API is not part of that site, so the lab and the
-hover lesson report that the API is unavailable there. FLY and TRAIN run in
-the browser.
+GitHub Pages for this repository publishes the root of the branch. Jekyll
+would turn this README into that site, so the root contains `.nojekyll` and
+the production build: `index.html`, `404.html`, `favicon.svg`, and `assets/`.
+Those files are the application. This README stays the repository
+documentation. Asset URLs use the `/fly/` base path, and `404.html` is a copy
+of `index.html` so a direct path still loads the simulator.
+
+Refresh the published files after a frontend change:
+
+```bash
+cd frontend
+GITHUB_PAGES=true npm run build
+node scripts/sync-pages.mjs
+```
+
+`.github/workflows/pages.yml` builds the same frontend. That Actions artifact
+is what the site uses after the repository Pages source is set to GitHub
+Actions. The Python API is not part of the site, so the lab and the hover
+lesson report that the API is unavailable there. FLY and TRAIN run in the
+browser.
 
 The repository homepage field is still unset. An anonymous
 `vercel deploy --temporary` preview expires and is not a homepage.
@@ -150,7 +165,7 @@ The repository homepage field is still unset. An anonymous
 ## Known limitations
 
 - One approximate Flatiron extract. Facades and setbacks are drawn, not surveyed.
-- Contact is an inelastic sphere against boxes. There is no friction or landing gear.
+- Contact is an inelastic sphere against the ground and extruded footprints. There is no friction or landing gear. The drawn setback is not a separate collision volume.
 - No motor dynamics, wind, sensor noise, or estimator.
 - The attitude controller is proportional attitude and rate. It has no integral term.
 - Landing success is a fixed set of limits on that episode, not a learned policy.
