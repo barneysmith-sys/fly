@@ -1,18 +1,16 @@
 import { useRef, useState } from "react";
 import { CityViewport, type CityPose } from "../components/CityViewport";
-import { buildingBox } from "../sim/collision";
 import type { District } from "../sim/district";
 import { useChrome } from "../chrome";
-import { episodeStart, landingGoalFromPad, runLandingEpisode, type LandingMetrics } from "../sim/landing";
+import { landingGoalFromPad, runLandingEpisode, type LandingMetrics } from "../sim/landing";
 import { IDENTITY_QUAT } from "../sim/math";
-import { NOMINAL_VEHICLE } from "../sim/vehicle";
+import { NOMINAL_VEHICLE, vehicleState } from "../sim/vehicle";
 
 type TrainPageProps = { district: District };
 
 export function TrainPage({ district }: TrainPageProps) {
   const pad = district.pad;
   const goal = landingGoalFromPad(pad);
-  const box = buildingBox(pad.id, pad.x, pad.y, 26, 22, pad.z, true);
   const [controller, setController] = useState<"position" | "vertical">("position");
   const [runs, setRuns] = useState<LandingMetrics[]>([]);
   const [active, setActive] = useState<LandingMetrics | null>(null);
@@ -27,9 +25,12 @@ export function TrainPage({ district }: TrainPageProps) {
   const run = () => {
     const result = runLandingEpisode({
       controller,
-      initial: episodeStart(pad),
+      initial: vehicleState({
+        positionM: { x: district.approach.x, y: district.approach.y, z: district.approach.z },
+      }),
       goal,
-      boxes: [box],
+      boxes: [],
+      prisms: district.prisms,
     });
     setRuns((current) => [...current, result]);
     setActive(result);
@@ -90,8 +91,9 @@ export function TrainPage({ district }: TrainPageProps) {
           </select>
         </label>
         <p className="field-hint">
-          Start is 5 m east and 4 m south of the pad, 8 m above the roof. Pad {pad.x.toFixed(0)} m east, {pad.y.toFixed(0)}{" "}
-          m north, roof {pad.z.toFixed(0)} m. Touchdown height adds the {NOMINAL_VEHICLE.radiusM} m body radius.
+          Start is the open approach beside the marked roof, {district.approach.z.toFixed(0)} m above the ground. Pad{" "}
+          {pad.x.toFixed(0)} m east, {pad.y.toFixed(0)} m north, roof {pad.z.toFixed(0)} m. Touchdown height adds the{" "}
+          {NOMINAL_VEHICLE.radiusM} m body radius. The episode collides with the district footprints.
         </p>
         <div className="form-actions">
           <button type="button" className="primary" onClick={run}>

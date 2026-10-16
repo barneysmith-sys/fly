@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import test from "node:test";
-import { buildingBox, resolveContacts } from "./collision.ts";
+import { buildingBox, pointInRing, resolveContacts, resolvePrisms } from "./collision.ts";
 import { attitudeMotors, hoverInput } from "./control.ts";
 import { episodeStart, landingGoalFromPad, runLandingEpisode } from "./landing.ts";
 import { GRAVITY_M_S2, quatFromAxisAngle, rhAngles } from "./math.ts";
@@ -133,6 +133,73 @@ test("position landing reaches the pad and vertical descent misses", () => {
     params: NOMINAL_VEHICLE,
   });
   assert.equal(withDrag.success, true, withDrag.reason);
+});
+
+test("a rotated footprint blocks its interior and leaves the axis-aligned corner open", () => {
+  const diamond = [
+    { x: 0, y: 6 },
+    { x: 6, y: 0 },
+    { x: 0, y: -6 },
+    { x: -6, y: 0 },
+  ];
+  assert.equal(pointInRing(0, 0, diamond), true);
+  assert.equal(pointInRing(5.5, 5.5, diamond), false);
+  const prism = { id: "diamond", ring: diamond, heightM: 20, pad: true };
+  const inside = vehicleState({ positionM: { x: 0, y: 0, z: 10 } });
+  const pushed = resolvePrisms(inside, [prism], 0.5);
+  assert.ok(Math.hypot(pushed.state.positionM.x, pushed.state.positionM.y) > 1);
+  const corner = vehicleState({ positionM: { x: 5.5, y: 5.5, z: 10 } });
+  const open = resolvePrisms(corner, [prism], 0.5);
+  assert.equal(open.contact, null);
+  const roof = vehicleState({ positionM: { x: 0, y: 0, z: 20.2 } });
+  const landed = resolvePrisms(roof, [prism], 0.5);
+  assert.equal(landed.contact?.pad, true);
+  assert.ok(landed.state.positionM.z >= 20.2);
+});
+
+test("the Flatiron extract keeps the launch in the street and the pad reachable", () => {
+  const data = JSON.parse(readFileSync(new URL("./flatiron.json", import.meta.url), "utf8")) as {
+    launch: { x: number; y: number; z: number };
+    approach: { x: number; y: number; z: number };
+    buildings: { id: string; name: string | null; height: number; pad: boolean; ring: number[][] }[];
+  };
+  const prisms = data.buildings.map((building) => ({
+    id: building.id,
+    ring: building.ring.map(([x, y]) => ({ x, y })),
+    heightM: building.height,
+    pad: building.pad,
+  }));
+  assert.equal(
+    prisms.some((prism) => pointInRing(data.launch.x, data.launch.y, prism.ring)),
+    false,
+  );
+  assert.equal(
+    prisms.some((prism) => pointInRing(data.approach.x, data.approach.y, prism.ring)),
+    false,
+  );
+  assert.ok(data.buildings.some((building) => building.name === "Flatiron Building"));
+  const pad = data.buildings.find((building) => building.pad);
+  assert.ok(pad);
+  const ring = pad.ring.map(([x, y]) => ({ x, y }));
+  let area = 0;
+  let cx = 0;
+  let cy = 0;
+  for (let index = 0; index < ring.length; index += 1) {
+    const start = ring[index];
+    const end = ring[(index + 1) % ring.length];
+    const cross = start.x * end.y - end.x * start.y;
+    area += cross;
+    cx += (start.x + end.x) * cross;
+    cy += (start.y + end.y) * cross;
+  }
+  const guided = runLandingEpisode({
+    controller: "position",
+    initial: vehicleState({ positionM: data.approach }),
+    goal: landingGoalFromPad({ x: cx / (3 * area), y: cy / (3 * area), z: pad.height }),
+    boxes: [],
+    prisms,
+  });
+  assert.equal(guided.success, true, guided.reason);
 });
 
 test("the rigid-body note contains the equation strings", () => {

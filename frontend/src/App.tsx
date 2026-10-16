@@ -94,10 +94,22 @@ export function App() {
     <ChromeContext.Provider value={publish}>
       <div className="app">
         <header className="topbar">
-          <div>
-            <p className="eyebrow">FLY / Flight systems</p>
+          <div className="brand">
             <h1>FLY</h1>
+            <p className="eyebrow">Flight systems</p>
           </div>
+          <nav className="nav" aria-label="FLY">
+            {NAV.map(([id, label]) => (
+              <a
+                key={id}
+                href={`#${id}`}
+                aria-current={navCurrent === id ? "page" : undefined}
+                onClick={() => setSection(id)}
+              >
+                {label}
+              </a>
+            ))}
+          </nav>
           <p className="chrome" aria-label="Simulation status">
             <span>{ready.district.label}</span>
             <span>{chrome.status}</span>
@@ -108,7 +120,7 @@ export function App() {
             <div className="settings-panel">
               <p className="field-hint">
                 Civilian educational simulator. The city view integrates a 6-DOF rigid body in the browser. The lab and
-                the hover lesson call the Python 1D plant.
+                the hover lesson call the Python 1D plant. Building footprints are OpenStreetMap data, not a survey.
               </p>
               <a href="#vertical">Vertical hover replay</a>
               <a href="#control">Why the PID is not AI</a>
@@ -117,18 +129,6 @@ export function App() {
             </div>
           </details>
         </header>
-        <nav className="nav" aria-label="FLY">
-          {NAV.map(([id, label]) => (
-            <a
-              key={id}
-              href={`#${id}`}
-              aria-current={navCurrent === id ? "page" : undefined}
-              onClick={() => setSection(id)}
-            >
-              {label}
-            </a>
-          ))}
-        </nav>
         {section === "fly" ? <FlyPage district={ready.district} /> : null}
         {section === "learn" ? (
           <div className="section-scroll">

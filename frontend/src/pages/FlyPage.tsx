@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from "react";
 import { useChrome } from "../chrome";
 import { CityViewport, type CameraMode, type CityPose } from "../components/CityViewport";
 import { attitudeMotors, hoverInput, type ControlMode } from "../sim/control";
-import { resolveContacts, type Contact } from "../sim/collision";
+import { resolvePrisms, type Contact } from "../sim/collision";
 import type { District } from "../sim/district";
 import { explain, INSTRUCTOR_NOTE, type InstructorQuestion } from "../sim/instructor";
 import { integrateThrottle, readPilot } from "../sim/input";
@@ -29,6 +29,7 @@ type Hud = {
 export function FlyPage({ district }: FlyPageProps) {
   const launch = vehicleState({
     positionM: { x: district.launch.x, y: district.launch.y, z: district.launch.z },
+    quaternion: district.launchQuaternion,
   });
   const hoverMotors = equalMotors(hoverThrustN(NOMINAL_VEHICLE));
   const stateRef = useRef<VehicleState>(launch);
@@ -48,7 +49,7 @@ export function FlyPage({ district }: FlyPageProps) {
   const [cameraMode, setCameraMode] = useState<CameraMode>("chase");
   const [mode, setMode] = useState<ControlMode>("stabilized");
   const [paused, setPaused] = useState(false);
-  const [panels, setPanels] = useState({ left: true, right: true, bottom: true });
+  const [panels, setPanels] = useState({ left: false, right: true, bottom: false });
   const [question, setQuestion] = useState<InstructorQuestion | null>(null);
   const [hud, setHud] = useState<Hud>({
     state: launch,
@@ -89,6 +90,7 @@ export function FlyPage({ district }: FlyPageProps) {
     const reset = () => {
       const next = vehicleState({
         positionM: { x: district.launch.x, y: district.launch.y, z: district.launch.z },
+        quaternion: district.launchQuaternion,
       });
       stateRef.current = next;
       throttleRef.current = hoverInput(NOMINAL_VEHICLE).throttle;
@@ -112,7 +114,7 @@ export function FlyPage({ district }: FlyPageProps) {
           throttleRef.current = pilot.throttle;
           const motors = attitudeMotors(stateRef.current, pilot, modeRef.current, NOMINAL_VEHICLE);
           const stepped = stepRigidBody(stateRef.current, motors, SIM_DT_S, NOMINAL_VEHICLE);
-          const resolved = resolveContacts(stepped.state, district.boxes, NOMINAL_VEHICLE.radiusM);
+          const resolved = resolvePrisms(stepped.state, district.prisms, NOMINAL_VEHICLE.radiusM);
           stateRef.current = resolved.state;
           motorsRef.current = stepped.motorsN;
           contactRef.current = resolved.contact;
@@ -222,6 +224,7 @@ export function FlyPage({ district }: FlyPageProps) {
             <p>{district.label}</p>
           </header>
           <p className="end-state">{district.disclaimer}</p>
+          <p className="field-hint">{district.attribution}. Open Database License.</p>
           <p className="field-hint">
             W/S nose down/up. A/D roll. Q/E yaw. Shift/Ctrl throttle. P pause. R reset. A connected gamepad uses the
             left stick, right stick X, and the triggers for the same axes.
@@ -239,7 +242,7 @@ export function FlyPage({ district }: FlyPageProps) {
           <h3>Environment</h3>
           <ul className="criteria">
             <li>
-              <span>Manhattan, fictional district</span>
+              <span>Flatiron footprints, OpenStreetMap</span>
               <span className="pass">Loaded</span>
             </li>
             <li>

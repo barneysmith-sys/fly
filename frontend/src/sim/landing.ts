@@ -1,4 +1,4 @@
-import { resolveContacts, type Aabb } from "./collision.ts";
+import { resolveContacts, resolvePrisms, type Aabb, type Prism } from "./collision.ts";
 import { landingMotors, verticalDescentMotors, type LandingGoal } from "./control.ts";
 import { length, sub, tiltFromVerticalRad } from "./math.ts";
 import { stepRigidBody } from "./rigidBody.ts";
@@ -32,6 +32,7 @@ export function runLandingEpisode(options: {
   initial: VehicleState;
   goal: LandingGoal;
   boxes: Aabb[];
+  prisms?: Prism[];
   params?: VehicleParams;
   durationS?: number;
 }): LandingMetrics {
@@ -47,7 +48,9 @@ export function runLandingEpisode(options: {
         ? landingMotors(state, options.goal, params)
         : verticalDescentMotors(state, options.goal, params);
     const stepped = stepRigidBody(state, motors, LANDING_DT_S, params);
-    const resolved = resolveContacts(stepped.state, options.boxes, params.radiusM);
+    const resolved = options.prisms
+      ? resolvePrisms(stepped.state, options.prisms, params.radiusM)
+      : resolveContacts(stepped.state, options.boxes, params.radiusM);
     state = resolved.state;
     if (index % 5 === 0) {
       samples.push(state);

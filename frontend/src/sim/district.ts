@@ -1,92 +1,135 @@
-import { buildingBox, type Aabb } from "./collision.ts";
+import { pointInRing, type Prism } from "./collision.ts";
+import { quatFromAxisAngle, type Quat } from "./math.ts";
+import flatiron from "./flatiron.json";
 
-export type Building = {
+export type BuildingStyle = "masonry" | "brick" | "glass" | "limestone";
+
+export type Footprint = {
   id: string;
-  x: number;
-  y: number;
-  w: number;
-  d: number;
+  name: string | null;
   h: number;
+  style: BuildingStyle;
   pad: boolean;
+  ring: { x: number; y: number }[];
+};
+
+export type Street = {
+  name: string | null;
+  kind: string;
+  width: number;
+  line: { x: number; y: number }[];
 };
 
 export type District = {
-  id: "manhattan-fictional";
+  id: "manhattan-flatiron";
   label: string;
   disclaimer: string;
-  buildings: Building[];
-  boxes: Aabb[];
+  attribution: string;
+  buildings: Footprint[];
+  streets: Street[];
+  prisms: Prism[];
   launch: { x: number; y: number; z: number };
-  pad: { id: string; x: number; y: number; z: number; half: number };
+  /** Body +x points toward the Flatiron Building. */
+  launchQuaternion: Quat;
+  approach: { x: number; y: number; z: number };
+  pad: { id: string; x: number; y: number; z: number };
+};
+
+type RawDistrict = {
+  attribution: string;
+  note: string;
+  launch: { x: number; y: number; z: number };
+  approach: { x: number; y: number; z: number };
+  buildings: {
+    id: string;
+    name: string | null;
+    height: number;
+    style: BuildingStyle;
+    pad: boolean;
+    ring: number[][];
+  }[];
+  streets: {
+    name: string | null;
+    kind: string;
+    width: number;
+    line: number[][];
+  }[];
 };
 
 /**
- * A compact street grid with the proportions of a dense downtown, not a
- * survey of Manhattan. Coordinates are metres. +x is east, +y is north.
+ * Flatiron district. Footprints and most heights are OpenStreetMap data,
+ * converted to metres with +x east and +y north. This is not a survey.
  */
 export function manhattanDistrict(): District {
-  const landmarks: Building[] = [
-    { id: "tower-east", x: 118, y: 6, w: 22, d: 22, h: 148, pad: false },
-    { id: "slab-south", x: 18, y: -62, w: 46, d: 18, h: 34, pad: false },
-    { id: "landing-roof", x: 78, y: 36, w: 26, d: 22, h: 28, pad: true },
-  ];
-  const buildings: Building[] = [...landmarks];
-  const plaza = { minX: -22, maxX: 22, minY: -22, maxY: 22 };
-  const footprints: [number, number][] = [
-    [28, 22],
-    [32, 18],
-    [22, 24],
-    [36, 16],
-  ];
-  let index = 0;
-  for (let i = 0; i < 9; i += 1) {
-    for (let j = 0; j < 8; j += 1) {
-      const [w, d] = footprints[(i + j * 3) % footprints.length];
-      const x = -184 + i * 46;
-      const y = -148 + j * 40;
-      const height = 16 + ((index * 17) % 11) * 8;
-      const block = { id: `block-${i}-${j}`, x, y, w, d, h: height, pad: false };
-      if (overlapsPlaza(x, y, w, d, plaza) || landmarks.some((mark) => overlapsFootprint(block, mark))) {
-        index += 1;
-        continue;
-      }
-      buildings.push(block);
-      index += 1;
-    }
-  }
-  const padBuilding = buildings.find((item) => item.pad);
+  const data = flatiron as unknown as RawDistrict;
+  const buildings: Footprint[] = data.buildings.map((building) => ({
+    id: building.id,
+    name: building.name,
+    h: building.height,
+    style: building.style,
+    pad: building.pad,
+    ring: building.ring.map(([x, y]) => ({ x, y })),
+  }));
+  const padBuilding = buildings.find((building) => building.pad);
   if (!padBuilding) {
     throw new Error("district is missing its landing roof");
   }
+  const padCenter = centroid(padBuilding.ring);
+  const launchInside = buildings.some((building) => pointInRing(data.launch.x, data.launch.y, building.ring));
+  if (launchInside) {
+    throw new Error("launch point sits inside a building footprint");
+  }
   return {
-    id: "manhattan-fictional",
-    label: "Manhattan — fictional district",
-    disclaimer:
-      "Fictional street grid inspired by a dense downtown. Not surveyed geography and not for navigation.",
+    id: "manhattan-flatiron",
+    label: "Manhattan — Flatiron, approximate",
+    disclaimer: data.note,
+    attribution: data.attribution,
     buildings,
-    boxes: buildings.map((item) => buildingBox(item.id, item.x, item.y, item.w, item.d, item.h, item.pad)),
-    launch: { x: 0, y: 0, z: 2 },
-    pad: {
-      id: padBuilding.id,
-      x: padBuilding.x,
-      y: padBuilding.y,
-      z: padBuilding.h,
-      half: Math.min(padBuilding.w, padBuilding.d) / 2,
-    },
+    streets: data.streets.map((street) => ({
+      name: street.name,
+      kind: street.kind,
+      width: street.width,
+      line: street.line.map(([x, y]) => ({ x, y })),
+    })),
+    prisms: buildings.map((building) => ({
+      id: building.id,
+      ring: building.ring,
+      heightM: building.h,
+      pad: building.pad,
+    })),
+    launch: data.launch,
+    launchQuaternion: yawToward(data.launch, flatironAim(buildings)),
+    approach: data.approach,
+    pad: { id: padBuilding.id, x: padCenter.x, y: padCenter.y, z: padBuilding.h },
   };
 }
 
-function overlapsFootprint(a: Building, b: Building): boolean {
-  const gap = 4;
-  return Math.abs(a.x - b.x) < (a.w + b.w) / 2 + gap && Math.abs(a.y - b.y) < (a.d + b.d) / 2 + gap;
+function flatironAim(buildings: Footprint[]): { x: number; y: number } {
+  const named = buildings.find((building) => building.name?.includes("Flatiron"));
+  return named ? centroid(named.ring) : { x: 0, y: -40 };
 }
 
-function overlapsPlaza(
-  x: number,
-  y: number,
-  w: number,
-  d: number,
-  plaza: { minX: number; maxX: number; minY: number; maxY: number },
-): boolean {
-  return x + w / 2 > plaza.minX && x - w / 2 < plaza.maxX && y + d / 2 > plaza.minY && y - d / 2 < plaza.maxY;
+function yawToward(from: { x: number; y: number }, to: { x: number; y: number }): Quat {
+  return quatFromAxisAngle({ x: 0, y: 0, z: 1 }, Math.atan2(to.y - from.y, to.x - from.x));
+}
+
+function centroid(ring: { x: number; y: number }[]): { x: number; y: number } {
+  let twice = 0;
+  let x = 0;
+  let y = 0;
+  for (let index = 0; index < ring.length; index += 1) {
+    const start = ring[index];
+    const end = ring[(index + 1) % ring.length];
+    const cross = start.x * end.y - end.x * start.y;
+    twice += cross;
+    x += (start.x + end.x) * cross;
+    y += (start.y + end.y) * cross;
+  }
+  if (Math.abs(twice) < 1e-6) {
+    return {
+      x: ring.reduce((sum, point) => sum + point.x, 0) / ring.length,
+      y: ring.reduce((sum, point) => sum + point.y, 0) / ring.length,
+    };
+  }
+  return { x: x / (3 * twice), y: y / (3 * twice) };
 }

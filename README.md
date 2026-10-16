@@ -9,19 +9,21 @@ system and it is not a navigation product.
 The city view is a browser rigid-body simulator. The lab is a separate,
 tested Python model of vertical motion. They are not the same integrator.
 
-![Chase view at hover in the fictional Manhattan district. Altitude 2.00 m, thrust equal to weight at 6.37 N.](docs/images/fly-chase.png)
+![Chase view at hover in the Flatiron district. Altitude 2.00 m, thrust equal to weight at 6.37 N.](docs/images/fly-chase.png)
 
 ## What you can do
 
 | Environment | What works |
 | --- | --- |
-| FLY | Fly a 6-DOF quadcopter in a fictional Manhattan district. FPV, chase, and external cameras. Keyboard and gamepad input. Pause, resume, and reset. Ground and building contact. Live telemetry from the integrator. A rules-based instructor. |
+| FLY | Fly a 6-DOF quadcopter over OpenStreetMap footprints of the Flatiron district. FPV, chase, and external cameras. Keyboard and gamepad input. Pause, resume, and reset. Ground and building contact. Live telemetry from the integrator. A rules-based instructor. |
 | LEARN | A hover lesson checked against the Python trace, and a pitch lesson checked against the rigid-body force equation. Other topics point at a real experiment or say they are not lessons yet. |
 | TRAIN | Deterministic landing episodes on the marked roof. Position descent and vertical-only descent. Position error, touchdown speed, and a success count of episodes you actually run. |
 | LAB | The Python 1D plant: mass, thrust, drag, and the named experiments. |
 
 Washington, London, and San Francisco are listed and are not built. No policy
-is trained. The instructor is not a language model.
+is trained. The instructor is not a language model. The Flatiron model is
+documented in [docs/DISTRICT.md](docs/DISTRICT.md). It is approximate and not
+for navigation. Map data © OpenStreetMap contributors, ODbL.
 
 ## Models
 
@@ -118,11 +120,16 @@ process on a machine that can stay up, and point the frontend at it only when
 you have a real API origin. Until then, the lab and the hover lesson report
 that the API is unavailable.
 
-This repository does not yet have a durable public URL, and the GitHub
-homepage field is unset. Do not treat a GitHub Pages site as the simulator:
-Pages cannot execute the Python model, and a root Pages deployment has no
-application entrypoint. An anonymous `vercel deploy --temporary` preview
-expires and is not a homepage.
+GitHub Pages serves the built frontend from
+[https://barneysmith-sys.github.io/fly/](https://barneysmith-sys.github.io/fly/).
+The workflow in `.github/workflows/pages.yml` builds `frontend` with
+`base: /fly/` and publishes that output. The README stays the repository
+documentation. The Python API is not part of that site, so the lab and the
+hover lesson report that the API is unavailable there. FLY and TRAIN run in
+the browser.
+
+The repository homepage field is still unset. An anonymous
+`vercel deploy --temporary` preview expires and is not a homepage.
 
 ## Roadmap
 
@@ -142,7 +149,7 @@ expires and is not a homepage.
 
 ## Known limitations
 
-- One fictional district. Buildings are procedural boxes, not a city survey.
+- One approximate Flatiron extract. Facades and setbacks are drawn, not surveyed.
 - Contact is an inelastic sphere against boxes. There is no friction or landing gear.
 - No motor dynamics, wind, sensor noise, or estimator.
 - The attitude controller is proportional attitude and rate. It has no integral term.
