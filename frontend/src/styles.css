@@ -436,6 +436,52 @@ legend {
   font-variant-numeric: tabular-nums;
 }
 
+.unit-rows {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.unit-rows li {
+  padding: 8px 0;
+  border-top: 1px solid var(--line);
+}
+
+.unit-name,
+.unit-plain {
+  margin: 0;
+}
+
+.unit-name {
+  display: flex;
+  gap: 8px;
+  align-items: baseline;
+  color: var(--ink);
+  font-size: 0.82rem;
+}
+
+.unit-plain {
+  margin-top: 3px;
+  color: var(--muted);
+  font-size: 0.78rem;
+}
+
+.unit-symbol,
+.unit-code {
+  font-family: "IBM Plex Mono", ui-monospace, monospace;
+  color: var(--muted);
+}
+
+.unit-guide details {
+  margin-top: 8px;
+}
+
+.unit-guide details p {
+  color: var(--muted);
+  font-size: 0.82rem;
+}
+
+.unit-guide summary,
 .model-notes summary {
   cursor: pointer;
   letter-spacing: 0.08em;

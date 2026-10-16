@@ -18,7 +18,8 @@ already balances weight, and a nonzero integral on this step is still high at
 12 s. The integral term is implemented and is checked against a constant
 external force.
 
-The equations, units, assumptions, and limitations are in [docs/MODEL.md](docs/MODEL.md).
+The equations, assumptions, and limitations are in [docs/MODEL.md](docs/MODEL.md).
+A plain-language guide to the units is in [docs/UNITS.md](docs/UNITS.md).
 
 ## What is not modeled
 

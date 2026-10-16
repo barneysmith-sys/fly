@@ -28,6 +28,9 @@ not flight-test data.
 Standard gravity in the 2 m hover is the conventional value 9.80665 m/s².
 A run may override `gravity_m_s2`. The override is still a constant.
 
+What the units mean, and how they differ from feet, knots, and hobby
+"grams of thrust," is written out in [UNITS.md](UNITS.md).
+
 ## State
 
 The plant state is (z, v). The controller state is the integral of altitude

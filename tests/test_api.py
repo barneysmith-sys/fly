@@ -35,6 +35,9 @@ def test_hover_endpoint_runs_the_milestone() -> None:
     assert body["samples"][0]["altitude_m"] == 0.0
     assert abs(body["summary"]["final_altitude_m"] - 2.0) <= 0.02
     assert body["model"]["equations"] == EQUATIONS
+    assert body["model"]["unit_notes"][0]["quantity"] == "Altitude"
+    assert body["model"]["unit_notes"][0]["unit"] == "m"
+    assert body["model"]["conventions"]
     assert body["summary"]["sample_count"] == len(body["samples"])
 
 
@@ -68,3 +71,16 @@ def test_model_manual_contains_the_equation_strings() -> None:
     manual = Path("docs/MODEL.md").read_text(encoding="utf-8")
     for equation in EQUATIONS.values():
         assert equation in manual
+
+
+def test_units_guide_matches_the_notes_served_by_the_api() -> None:
+    from pathlib import Path
+
+    from aerosim.spec import CONVENTIONS, UNIT_NOTES
+
+    guide = Path("docs/UNITS.md").read_text(encoding="utf-8")
+    for note in UNIT_NOTES:
+        assert str(note["plain"]) in guide
+        assert str(note["unit"]) in guide
+    for paragraph in CONVENTIONS:
+        assert paragraph in guide

@@ -66,11 +66,21 @@ export type Summary = {
   hover_thrust_n: number;
 };
 
+export type UnitNote = {
+  quantity: string;
+  symbol: string;
+  unit: string;
+  primary: boolean;
+  plain: string;
+};
+
 export type ModelDocument = {
   name: string;
   version: string;
   equations: Record<string, string>;
   units: Record<string, string>;
+  unit_notes: UnitNote[];
+  conventions: string[];
   assumptions: string[];
   limitations: string[];
 };

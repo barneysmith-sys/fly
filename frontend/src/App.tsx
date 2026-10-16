@@ -6,6 +6,7 @@ import { ModelNotes } from "./components/ModelNotes";
 import { ParameterForm } from "./components/ParameterForm";
 import { QuadView } from "./components/QuadView";
 import { Readouts } from "./components/Readouts";
+import { UnitGuide } from "./components/UnitGuide";
 import { formatFixed } from "./format";
 import type { Draft, SimulationResponse } from "./types";
 import { configFromDraft, draftFromConfig } from "./types";
@@ -119,6 +120,7 @@ export function App() {
 
       <main className="workspace">
         <div className="inputs">
+          <UnitGuide notes={result?.model.unit_notes ?? []} conventions={result?.model.conventions ?? []} />
           {draft ? (
             <ParameterForm
               draft={draft}
@@ -145,7 +147,7 @@ export function App() {
           />
         </section>
 
-        <Readouts sample={sample} />
+        <Readouts sample={sample} unitNotes={result?.model.unit_notes ?? []} />
 
         <section className="panel chart-panel" aria-label="Altitude history">
           <header className="panel-head">

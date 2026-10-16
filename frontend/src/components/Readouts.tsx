@@ -1,11 +1,13 @@
 import { formatFixed, formatSigned } from "../format";
-import type { Sample } from "../types";
+import type { Sample, UnitNote } from "../types";
 
 type ReadoutsProps = {
   sample: Sample | null;
+  unitNotes: UnitNote[];
 };
 
-export function Readouts({ sample }: ReadoutsProps) {
+export function Readouts({ sample, unitNotes }: ReadoutsProps) {
+  const explain = (quantity: string) => unitNotes.find((note) => note.quantity === quantity)?.plain;
   return (
     <section className="panel readouts" aria-label="Simulation sample">
       <header className="panel-head">
@@ -17,23 +19,27 @@ export function Readouts({ sample }: ReadoutsProps) {
           label="Target altitude"
           value={sample ? formatFixed(sample.target_altitude_m, 3) : "—"}
           unit="m"
+          hint={explain("Altitude")}
         />
         <Readout
           label="Altitude"
           value={sample ? formatFixed(sample.altitude_m, 3) : "—"}
           unit="m"
+          hint={explain("Altitude")}
           detail={sample ? `${formatSigned(sample.altitude_error_m, 4)} m error` : undefined}
         />
         <Readout
           label="Vertical velocity"
           value={sample ? formatSigned(sample.vertical_velocity_m_s, 3) : "—"}
           unit="m/s"
+          hint={explain("Vertical velocity")}
           detail="Positive upward"
         />
         <Readout
           label="Thrust"
           value={sample ? formatFixed(sample.thrust_n, 3) : "—"}
           unit="N"
+          hint={explain("Thrust and weight")}
           detail={
             sample
               ? sample.saturated
@@ -59,18 +65,22 @@ function Readout({
   value,
   unit,
   detail,
+  hint,
 }: {
   label: string;
   value: string;
   unit: string;
   detail?: string;
+  hint?: string;
 }) {
   return (
     <div>
       <dt>{label}</dt>
       <dd>
         <span className="readout-value">{value}</span>
-        <span className="readout-unit">{unit}</span>
+        <span className="readout-unit" title={hint}>
+          {unit}
+        </span>
         {detail ? <span className="readout-detail">{detail}</span> : null}
       </dd>
     </div>
