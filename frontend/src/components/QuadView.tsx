@@ -1,5 +1,6 @@
 import { useEffect, useRef } from "react";
 import * as THREE from "three";
+import { buildExplorer } from "./explorerModel";
 
 type QuadViewProps = {
   altitudeM: number | null;
@@ -182,47 +183,10 @@ function buildVehicle(): {
   const group = new THREE.Group();
   const airframe = new THREE.Group();
   airframe.scale.setScalar(AIRFRAME_DRAWING_SCALE);
-  const bodyMaterial = new THREE.MeshStandardMaterial({
-    color: 0xd5dde6,
-    roughness: 0.42,
-    metalness: 0.2,
-  });
-  const armMaterial = new THREE.MeshStandardMaterial({
-    color: 0xb7c2cc,
-    roughness: 0.5,
-    metalness: 0.16,
-  });
-  const motorMaterial = new THREE.MeshStandardMaterial({
-    color: 0x6a7580,
-    roughness: 0.4,
-    metalness: 0.25,
-  });
-  const discMaterial = new THREE.MeshBasicMaterial({
-    color: 0xe7eef3,
-    transparent: true,
-    opacity: 0.82,
-    side: THREE.DoubleSide,
-  });
-
-  const body = new THREE.Mesh(new THREE.BoxGeometry(0.16, 0.036, 0.16), bodyMaterial);
-  airframe.add(body);
-
-  const armGeometry = new THREE.BoxGeometry(0.18, 0.012, 0.022);
-  const motorGeometry = new THREE.CylinderGeometry(0.02, 0.02, 0.022, 16);
-  const discGeometry = new THREE.CircleGeometry(0.085, 24);
-  for (const angle of [0, Math.PI / 2, Math.PI, (3 * Math.PI) / 2]) {
-    const arm = new THREE.Mesh(armGeometry, armMaterial);
-    arm.position.set(Math.cos(angle) * 0.15, 0, Math.sin(angle) * 0.15);
-    arm.rotation.y = -angle;
-    airframe.add(arm);
-    const motor = new THREE.Mesh(motorGeometry, motorMaterial);
-    motor.position.set(Math.cos(angle) * 0.25, 0.01, Math.sin(angle) * 0.25);
-    airframe.add(motor);
-    const disc = new THREE.Mesh(discGeometry, discMaterial);
-    disc.position.set(Math.cos(angle) * 0.25, 0.026, Math.sin(angle) * 0.25);
-    disc.rotation.x = -Math.PI / 2;
-    airframe.add(disc);
-  }
+  const explorer = buildExplorer();
+  explorer.rotation.x = -Math.PI / 2;
+  explorer.scale.setScalar(3.2);
+  airframe.add(explorer);
   group.add(airframe);
 
   const arrow = new THREE.Group();

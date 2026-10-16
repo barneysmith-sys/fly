@@ -16,8 +16,8 @@ import { manhattanDistrict } from "./sim/district";
 import type { VehicleParams } from "./sim/vehicle";
 
 const NAV = [
-  ["fly", "Fly"],
-  ["learn", "Learn"],
+  ["fly", "Flight"],
+  ["learn", "Academy"],
   ["train", "Train"],
   ["lab", "Lab"],
 ] as const;
@@ -99,13 +99,12 @@ export function App() {
         <header className="topbar">
           <div className="brand">
             <svg className="mark" viewBox="0 0 32 32" aria-hidden="true">
-              <path d="M4 22 L14 8 H18 L8 22 Z" />
-              <path d="M14 22 L24 8 H28 L18 22 Z" />
+              <path d="M16 4 L28 26 H21.5 L16 15.5 L10.5 26 H4 Z" />
             </svg>
-            <h1>FLY</h1>
-            <p className="eyebrow">Flight systems</p>
+            <h1>STRATA</h1>
+            <p className="eyebrow">Flight simulation & training</p>
           </div>
-          <nav className="nav" aria-label="FLY">
+          <nav className="nav" aria-label="STRATA">
             {NAV.map(([id, label]) => (
               <a
                 key={id}

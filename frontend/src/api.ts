@@ -1,3 +1,4 @@
+import { BROWSER_MODEL, runOpenLoop } from "./sim/verticalPlant";
 import type {
   ExperimentResponse,
   ExperimentSummary,
@@ -6,10 +7,12 @@ import type {
   SimulationResponse,
 } from "./types";
 
+const NO_API = "NO_PYTHON_API";
+
 export function describeError(error: unknown): string {
   if (error instanceof Error) {
-    if (error.message === "Failed to fetch") {
-      return "The Python API is not reachable. Start it with python -m aerosim.api.server.";
+    if (error.message === "Failed to fetch" || error.message === "NO_PYTHON_API") {
+      return "This host has no Python plant. Start it with python -m aerosim.api.server, or use the browser open-loop lesson.";
     }
     return error.message;
   }
@@ -17,7 +20,17 @@ export function describeError(error: unknown): string {
 }
 
 async function readJson(response: Response): Promise<unknown> {
-  const body: unknown = await response.json();
+  const type = response.headers.get("content-type") ?? "";
+  const text = await response.text();
+  if (!type.includes("json") || text.trim().startsWith("<")) {
+    throw new Error(NO_API);
+  }
+  let body: unknown;
+  try {
+    body = JSON.parse(text) as unknown;
+  } catch {
+    throw new Error(NO_API);
+  }
   if (!response.ok) {
     const message =
       typeof body === "object" &&
@@ -61,12 +74,34 @@ export async function postSimulation(
     body: JSON.stringify(config),
     signal,
   });
-  return readTrace(response);
+  try {
+    const trace = await readTrace(response);
+    return { ...trace, plant: trace.plant ?? "python" };
+  } catch (caught) {
+    if (caught instanceof Error && caught.message === NO_API && config.control_mode === "open_loop") {
+      return runOpenLoop(config);
+    }
+    if (caught instanceof Error && caught.message === NO_API) {
+      throw new Error("Closed-loop experiments need the Python API. This host only runs the open-loop browser plant.");
+    }
+    throw caught;
+  }
 }
 
 export async function fetchModel(signal?: AbortSignal): Promise<ModelDocument> {
   const response = await fetch("/api/model", { signal });
-  const body = await readJson(response);
+  if (!response.ok && response.status !== 200) {
+    const type = response.headers.get("content-type") ?? "";
+    if (!type.includes("json")) {
+      return BROWSER_MODEL;
+    }
+  }
+  const body = await readJson(response).catch((caught: unknown) => {
+    if (caught instanceof Error && caught.message === NO_API) {
+      return BROWSER_MODEL;
+    }
+    throw caught;
+  });
   if (typeof body !== "object" || body === null || !("equations" in body)) {
     throw new Error("The model document was not returned.");
   }

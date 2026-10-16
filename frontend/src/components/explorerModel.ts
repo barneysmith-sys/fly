@@ -16,7 +16,12 @@ export function buildExplorer(): THREE.Group {
   const accentMat = new THREE.MeshStandardMaterial({ color: ACCENT, roughness: 0.3, metalness: 0.4, emissive: ACCENT, emissiveIntensity: 0.15 });
   const darkMat = new THREE.MeshStandardMaterial({ color: 0x1a2128, roughness: 0.6, metalness: 0.2 });
 
-  const body = new THREE.Mesh(new THREE.BoxGeometry(0.09, 0.062, 0.022), bodyMat);
+  const hull = new THREE.Mesh(new THREE.SphereGeometry(0.055, 24, 16), bodyMat);
+  hull.scale.set(1.35, 0.85, 0.42);
+  hull.userData.part = "controller";
+  group.add(hull);
+  const body = new THREE.Mesh(new THREE.BoxGeometry(0.07, 0.048, 0.016), shellMat);
+  body.position.z = 0.012;
   body.userData.part = "controller";
   group.add(body);
   const shell = new THREE.Mesh(new THREE.BoxGeometry(0.072, 0.046, 0.008), shellMat);

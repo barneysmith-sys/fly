@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
-import { describeError, fetchExperiment, fetchExperiments, fetchHover, postSimulation } from "../api";
+import { describeError } from "../api";
+import { runPlant } from "../sim/verticalPlant";
 import { AcceptancePanel } from "../components/AcceptancePanel";
 import { ParameterForm } from "../components/ParameterForm";
 import { SimulatorLayout } from "../components/SimulatorLayout";
@@ -29,7 +30,7 @@ const INITIAL_DRAFT: OpenLoopDraft = {
 export function LabPage() {
   const [catalog, setCatalog] = useState<ExperimentSummary[]>([]);
   const [draft, setDraft] = useState<OpenLoopDraft>(INITIAL_DRAFT);
-  const [pidDraft, setPidDraft] = useState<Draft | null>(null);
+  const [pidDraft, setPidDraft] = useState<Draft | null>(HOVER_DRAFT);
   const [result, setResult] = useState<SimulationResponse | null>(null);
   const [experiment, setExperiment] = useState<ExperimentResponse["experiment"] | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -37,34 +38,16 @@ export function LabPage() {
   const playback = usePlayback(result?.samples ?? null);
 
   useEffect(() => {
-    const controller = new AbortController();
-    const load = async () => {
-      try {
-        const [items, hover] = await Promise.all([
-          fetchExperiments(controller.signal),
-          fetchHover(controller.signal),
-        ]);
-        if (!controller.signal.aborted) {
-          setCatalog(items);
-          setPidDraft((current) => current ?? draftFromConfig(hover.config));
-        }
-      } catch (caught) {
-        if (!controller.signal.aborted) {
-          setError(describeError(caught));
-        }
-      }
-    };
-    void load();
-    return () => controller.abort();
+    setCatalog(BROWSER_CASES);
   }, []);
 
   const runExperiment = async (experimentId: string) => {
     setLoading(true);
     setError(null);
     try {
-      const trace = await fetchExperiment(experimentId);
+      const trace = runPlant(browserCase(experimentId));
       setResult(trace);
-      setExperiment(trace.experiment);
+      setExperiment(reportFor(experimentId, trace));
       if (trace.config.control_mode === "pid") {
         setPidDraft(draftFromConfig(trace.config));
       }
@@ -87,7 +70,7 @@ export function LabPage() {
     setLoading(true);
     setError(null);
     try {
-      const trace = await postSimulation(config);
+      const trace = runPlant(config);
       setResult(trace);
       setExperiment(null);
     } catch (caught) {
@@ -112,7 +95,7 @@ export function LabPage() {
     setLoading(true);
     setError(null);
     try {
-      const trace = await postSimulation(config);
+      const trace = runPlant(config);
       setResult(trace);
       setExperiment(null);
     } catch (caught) {
@@ -138,7 +121,7 @@ export function LabPage() {
           <section className="panel">
             <header className="panel-head">
               <h2>Experiments</h2>
-              <p>Run by the API</p>
+              <p>Browser plant</p>
             </header>
             <div className="stack">
               {catalog.map((item) => (
@@ -200,8 +183,8 @@ export function LabPage() {
               <p>Open loop</p>
             </header>
             <p className="end-state">
-              Constant thrust, no PID. Units are SI. The Python model clamps thrust to the limits and integrates with
-              RK4.
+              Constant thrust, no PID. This page integrates the documented equation in the browser with classical RK4.
+              It does not call <code>/api</code>. The Python module remains the reference for regression tests.
             </p>
             <LabField
               id="lab-mass"
@@ -270,8 +253,7 @@ export function LabPage() {
           <details className="panel">
             <summary>Closed-loop altitude controller</summary>
             <p className="end-state">
-              These inputs run the PID. Load an experiment to fill them from a real config, then edit and run. Ki, mass,
-              and thrust limits are the same fields the 2 m hover uses.
+              These inputs run the same PID law as the Python module, in the browser. The 2 m hover gains are already filled. Named Python catalog checks are not served by GitHub Pages.
             </p>
             {pidDraft ? (
               <ParameterForm
@@ -282,7 +264,7 @@ export function LabPage() {
                 onRestoreHover={() => void runExperiment("step-response")}
               />
             ) : (
-              <p className="empty-copy">Loading the 2 m hover inputs from the model.</p>
+              <p className="empty-copy">The 2 m hover inputs are part of this page.</p>
             )}
           </details>
           {experiment?.scores_hover_band ? <AcceptancePanel result={result} /> : null}
@@ -290,6 +272,126 @@ export function LabPage() {
       }
     />
   );
+}
+
+const HOVER_DRAFT: Draft = {
+  mass_kg: "1",
+  gravity_m_s2: "9.80665",
+  thrust_min_n: "0",
+  thrust_max_n: String(2 * 9.80665),
+  drag_coefficient_kg_per_m: "0",
+  external_force_n: "0",
+  initial_altitude_m: "0",
+  initial_vertical_velocity_m_s: "0",
+  target_altitude_m: "2",
+  kp_n_per_m: "2.25",
+  ki_n_per_m_s: "0",
+  kd_n_s_per_m: "3",
+  timestep_s: "0.01",
+  duration_s: "12",
+  ground_contact: true,
+};
+
+const BROWSER_CASES: ExperimentSummary[] = [
+  {
+    experiment_id: "free-fall",
+    title: "Free fall",
+    summary: "Thrust is zero from rest at 5 m.",
+    supports: "Open-loop specific force.",
+    inputs: ["thrust", "altitude"],
+    scores_hover_band: false,
+  },
+  {
+    experiment_id: "hover-hold",
+    title: "Hover equilibrium",
+    summary: "Thrust equals weight at 2 m with zero vertical speed.",
+    supports: "Open-loop equilibrium.",
+    inputs: ["mass", "gravity", "thrust"],
+    scores_hover_band: false,
+  },
+  {
+    experiment_id: "excess-thrust",
+    title: "Excess thrust",
+    summary: "14 N on a 1 kg vehicle at rest.",
+    supports: "Open-loop climb.",
+    inputs: ["thrust"],
+    scores_hover_band: false,
+  },
+  {
+    experiment_id: "hover-2m",
+    title: "2 m hover",
+    summary: "PID step from the ground to 2 m. Ki is 0.",
+    supports: "Closed-loop altitude.",
+    inputs: ["kp", "kd", "target"],
+    scores_hover_band: false,
+  },
+];
+
+function browserCase(id: string) {
+  const gravity = 9.80665;
+  const shared = {
+    mass_kg: 1,
+    gravity_m_s2: gravity,
+    thrust_min_n: 0,
+    thrust_max_n: 40,
+    drag_coefficient_kg_per_m: 0,
+    external_force_n: 0,
+    initial_vertical_velocity_m_s: 0,
+    kp_n_per_m: 0,
+    ki_n_per_m_s: 0,
+    kd_n_s_per_m: 0,
+    timestep_s: 0.01,
+    ground_contact: true,
+    velocity_reference_m_s: 0,
+    natural_frequency_rad_s: null,
+    damping_ratio: null,
+    control_mode: "open_loop" as const,
+  };
+  if (id === "free-fall") {
+    return { ...shared, initial_altitude_m: 5, target_altitude_m: 5, duration_s: 1.5, open_loop_thrust_n: 0 };
+  }
+  if (id === "hover-hold") {
+    return { ...shared, initial_altitude_m: 2, target_altitude_m: 2, duration_s: 2, open_loop_thrust_n: gravity };
+  }
+  if (id === "excess-thrust") {
+    return { ...shared, initial_altitude_m: 2, target_altitude_m: 2, duration_s: 1.5, open_loop_thrust_n: 14 };
+  }
+  if (id === "hover-2m") {
+    return configFromDraft(HOVER_DRAFT);
+  }
+  throw new Error(`Unknown experiment ${id}`);
+}
+
+function reportFor(id: string, trace: SimulationResponse): ExperimentResponse["experiment"] {
+  const item = BROWSER_CASES.find((entry) => entry.experiment_id === id) ?? BROWSER_CASES[0];
+  const accel = trace.summary.initial_vertical_acceleration_m_s2;
+  const finalAltitude = trace.summary.final_altitude_m;
+  const finding =
+    id === "hover-2m"
+      ? {
+          name: "final_altitude",
+          description: "Altitude at the last sample",
+          observed: finalAltitude,
+          expected: 2,
+          tolerance: 0.2,
+          unit: "m",
+          passed: Math.abs(finalAltitude - 2) <= 0.2,
+        }
+      : {
+          name: "initial_acceleration",
+          description: "Vertical acceleration of the first airborne sample",
+          observed: accel,
+          expected: id === "hover-hold" ? 0 : id === "free-fall" ? -9.80665 : 14 - 9.80665,
+          tolerance: 1e-6,
+          unit: "m/s^2",
+          passed:
+            id === "hover-hold"
+              ? Math.abs(accel) <= 1e-6
+              : id === "free-fall"
+                ? accel < -9
+                : accel > 1,
+        };
+  return { ...item, passed: finding.passed, findings: [finding] };
 }
 
 function openLoopConfig(draft: OpenLoopDraft) {

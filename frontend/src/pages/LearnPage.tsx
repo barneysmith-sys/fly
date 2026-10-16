@@ -280,6 +280,9 @@ function HoverLesson() {
         <p className="field-hint">
           Gravity used by this lesson: {gravity === undefined ? "loading" : `${gravity} m/s²`}. Thrust is limited to 0–40
           N. Predict the motion from the thrust that will actually be applied.
+          {result?.plant === "browser"
+            ? " This run used the browser copy of that equation. The Python process is not on this host."
+            : ""}
         </p>
       </section>
 

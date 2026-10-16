@@ -101,6 +101,8 @@ export type SimulationResponse = {
   samples: Sample[];
   summary: Summary;
   acceptance: Acceptance;
+  /** python when the API answered; browser when this host served HTML instead. */
+  plant?: "python" | "browser";
 };
 
 export type Motion = "climb" | "hold" | "descend";

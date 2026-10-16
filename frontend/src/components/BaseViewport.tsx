@@ -1,11 +1,12 @@
 import { useEffect, useRef } from "react";
 import * as THREE from "three";
+import { createApron, createPeaks, createSky, createWater, tickWater } from "./coastalLook";
 import { buildExplorer, spinProps } from "./explorerModel";
 import { APRON, MAINTENANCE, MAIN_HANGAR, PRECISION_PAD, type Site } from "../sim/coastal";
 import { rotateBodyToWorld, type Quat, type Vec3 } from "../sim/math";
 import type { MotorsN } from "../sim/vehicle";
 
-export type CameraMode = "fpv" | "chase" | "orbit";
+export type CameraMode = "fpv" | "chase" | "orbit" | "scenic";
 
 export type AircraftPose = {
   position: Vec3;
@@ -65,7 +66,7 @@ export function BaseViewport({ site, poseRef, cameraMode, paused, quality, rende
     const env = pmrem.fromScene(envScene, 0.04);
     scene.environment = env.texture;
 
-    scene.add(buildSky());
+    scene.add(createSky());
     const hemi = new THREE.HemisphereLight(0xd7e4f0, 0x6a624e, 1.15);
     hemi.position.set(0, 0, 1);
     scene.add(hemi);
@@ -90,37 +91,17 @@ export function BaseViewport({ site, poseRef, cameraMode, paused, quality, rende
     fill.position.set(-80, 40, 60);
     scene.add(fill);
 
-    const { color, rough } = apronTextures();
-    const apron = new THREE.Mesh(
-      new THREE.PlaneGeometry(APRON.maxX - APRON.minX, APRON.maxY - APRON.minY),
-      new THREE.MeshStandardMaterial({
-        map: color,
-        roughnessMap: rough,
-        roughness: 1,
-        metalness: 0.18,
-      }),
-    );
+    const apron = createApron(APRON.maxX - APRON.minX, APRON.maxY - APRON.minY);
     apron.position.set((APRON.minX + APRON.maxX) / 2, (APRON.minY + APRON.maxY) / 2, 0.02);
-    apron.receiveShadow = true;
     scene.add(apron);
 
-    const water = new THREE.Mesh(
-      new THREE.PlaneGeometry(900, 700),
-      new THREE.MeshStandardMaterial({
-        color: 0x1a333c,
-        roughness: 0.08,
-        metalness: 0.72,
-        transparent: true,
-        opacity: 0.94,
-      }),
-    );
-    water.position.set(-40, -80, 0);
-    water.receiveShadow = true;
+    const water = createWater(980, 640);
+    water.position.set(-30, -180, -0.05);
     scene.add(water);
 
     scene.add(buildMarkings());
     scene.add(buildStructures(shadows));
-    scene.add(buildMountains());
+    scene.add(createPeaks());
     scene.add(buildClouds());
     scene.add(buildBoats());
 
@@ -149,6 +130,7 @@ export function BaseViewport({ site, poseRef, cameraMode, paused, quality, rende
       drone.visible = mode !== "fpv";
       const thrust = pose.motors.reduce((sum, motor) => sum + motor, 0);
       spinProps(drone, thrust * 0.035);
+      tickWater(scene, performance.now() / 1000);
       placeCamera(camera, pose, mode, orbit);
       renderer.render(scene, camera);
     };
@@ -253,18 +235,24 @@ function placeCamera(
       camera.position.z + forward.z,
     );
   } else if (mode === "chase") {
-    camera.fov = 50;
+    camera.fov = 48;
     camera.up.set(0, 0, 1);
+    const right = rotateBodyToWorld(pose.quaternion, { x: 0, y: 1, z: 0 });
     camera.position.set(
-      pose.position.x - forward.x * 11,
-      pose.position.y - forward.y * 11,
-      pose.position.z + 3.4,
+      pose.position.x - forward.x * 14 + right.x * 4,
+      pose.position.y - forward.y * 14 + right.y * 4,
+      pose.position.z + 6,
     );
     camera.lookAt(
-      pose.position.x + forward.x * 12,
-      pose.position.y + forward.y * 12,
-      pose.position.z + 1.2,
+      pose.position.x + forward.x * 40,
+      pose.position.y + forward.y * 40,
+      pose.position.z + 8,
     );
+  } else if (mode === "scenic") {
+    camera.fov = 42;
+    camera.up.set(0, 0, 1);
+    camera.position.set(24, -22, 5.5);
+    camera.lookAt(36, 48, 8);
   } else {
     camera.fov = 46;
     camera.up.set(0, 0, 1);
@@ -278,89 +266,6 @@ function placeCamera(
     camera.lookAt(pose.position.x, pose.position.y, pose.position.z + 0.4);
   }
   camera.updateProjectionMatrix();
-}
-
-function buildSky(): THREE.Mesh {
-  const canvas = document.createElement("canvas");
-  canvas.width = 8;
-  canvas.height = 256;
-  const context = canvas.getContext("2d");
-  if (!context) {
-    throw new Error("canvas is unavailable");
-  }
-  const gradient = context.createLinearGradient(0, 0, 0, 256);
-  gradient.addColorStop(0, "#2a3440");
-  gradient.addColorStop(0.42, "#6d7c88");
-  gradient.addColorStop(0.62, "#c9b089");
-  gradient.addColorStop(0.78, "#e7d3ae");
-  gradient.addColorStop(1, "#8a97a3");
-  context.fillStyle = gradient;
-  context.fillRect(0, 0, 8, 256);
-  const texture = new THREE.CanvasTexture(canvas);
-  texture.colorSpace = THREE.SRGBColorSpace;
-  const material = new THREE.MeshBasicMaterial({ map: texture, side: THREE.BackSide, fog: false, depthWrite: false });
-  const sky = new THREE.Mesh(new THREE.SphereGeometry(780, 24, 16), material);
-  return sky;
-}
-
-function apronTextures(): { color: THREE.CanvasTexture; rough: THREE.CanvasTexture } {
-  const canvas = document.createElement("canvas");
-  canvas.width = 512;
-  canvas.height = 512;
-  const context = canvas.getContext("2d");
-  const roughCanvas = document.createElement("canvas");
-  roughCanvas.width = 512;
-  roughCanvas.height = 512;
-  const roughContext = roughCanvas.getContext("2d");
-  if (!context || !roughContext) {
-    throw new Error("canvas is unavailable");
-  }
-  context.fillStyle = "#5c656e";
-  context.fillRect(0, 0, 512, 512);
-  roughContext.fillStyle = "#c8c8c8";
-  roughContext.fillRect(0, 0, 512, 512);
-  for (let i = 0; i < 1800; i += 1) {
-    const shade = 46 + Math.floor(Math.random() * 28);
-    context.fillStyle = `rgba(${shade},${shade + 2},${shade + 5},0.45)`;
-    context.fillRect(Math.random() * 512, Math.random() * 512, 2, 2);
-  }
-  context.strokeStyle = "rgba(18,22,26,0.55)";
-  context.lineWidth = 2;
-  for (let line = 0; line <= 512; line += 64) {
-    context.beginPath();
-    context.moveTo(line, 0);
-    context.lineTo(line, 512);
-    context.stroke();
-    context.beginPath();
-    context.moveTo(0, line);
-    context.lineTo(512, line);
-    context.stroke();
-  }
-  roughContext.fillStyle = "#2a2a2a";
-  for (let puddle = 0; puddle < 7; puddle += 1) {
-    const x = 40 + Math.random() * 430;
-    const y = 40 + Math.random() * 430;
-    const rx = 18 + Math.random() * 36;
-    const ry = 8 + Math.random() * 16;
-    context.fillStyle = "rgba(18, 24, 28, 0.35)";
-    context.beginPath();
-    context.ellipse(x, y, rx, ry, 0.4, 0, Math.PI * 2);
-    context.fill();
-    roughContext.beginPath();
-    roughContext.ellipse(x, y, rx, ry, 0.4, 0, Math.PI * 2);
-    roughContext.fill();
-  }
-  const color = new THREE.CanvasTexture(canvas);
-  color.colorSpace = THREE.SRGBColorSpace;
-  color.wrapS = THREE.RepeatWrapping;
-  color.wrapT = THREE.RepeatWrapping;
-  color.repeat.set(8, 6);
-  const rough = new THREE.CanvasTexture(roughCanvas);
-  rough.colorSpace = THREE.NoColorSpace;
-  rough.wrapS = THREE.RepeatWrapping;
-  rough.wrapT = THREE.RepeatWrapping;
-  rough.repeat.set(8, 6);
-  return { color, rough };
 }
 
 function buildMarkings(): THREE.Group {
@@ -534,42 +439,6 @@ function buildStructures(shadows: boolean): THREE.Group {
     head.position.set(x, y, 5);
     group.add(head);
   }
-  return group;
-}
-
-function buildMountains(): THREE.Group {
-  const group = new THREE.Group();
-  const near = new THREE.MeshStandardMaterial({ color: 0x3c4854, roughness: 0.9, metalness: 0.02 });
-  const far = new THREE.MeshStandardMaterial({ color: 0x6a7886, roughness: 0.85, metalness: 0.02 });
-  const snow = new THREE.MeshStandardMaterial({ color: 0xe7eef3, roughness: 0.7, metalness: 0.02 });
-  const peaks = [
-    { x: -150, y: 280, h: 150, r: 42, far: false, cap: false },
-    { x: -70, y: 340, h: 220, r: 48, far: true, cap: true },
-    { x: 10, y: 390, h: 280, r: 52, far: true, cap: true },
-    { x: 90, y: 360, h: 240, r: 46, far: true, cap: true },
-    { x: 170, y: 320, h: 190, r: 40, far: true, cap: true },
-    { x: 240, y: 290, h: 140, r: 36, far: false, cap: false },
-    { x: 40, y: 250, h: 90, r: 28, far: false, cap: false },
-  ];
-  for (const peak of peaks) {
-    const geo = new THREE.ConeGeometry(peak.r, peak.h, 6);
-    geo.rotateX(Math.PI / 2);
-    geo.translate(0, 0, peak.h / 2);
-    const mesh = new THREE.Mesh(geo, peak.far ? far : near);
-    mesh.position.set(peak.x, peak.y, 0);
-    group.add(mesh);
-    if (peak.cap) {
-      const capGeo = new THREE.ConeGeometry(peak.r * 0.28, peak.h * 0.22, 6);
-      capGeo.rotateX(Math.PI / 2);
-      capGeo.translate(0, 0, peak.h * 0.11);
-      const cap = new THREE.Mesh(capGeo, snow);
-      cap.position.set(peak.x, peak.y, peak.h * 0.78);
-      group.add(cap);
-    }
-  }
-  const cliff = new THREE.Mesh(new THREE.BoxGeometry(18, 100, 9), near);
-  cliff.position.set(-74, 30, 4.5);
-  group.add(cliff);
   return group;
 }
 
