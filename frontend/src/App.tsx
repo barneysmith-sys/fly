@@ -73,7 +73,7 @@ export function App() {
     }
     const labels: Record<Exclude<SectionId, "fly" | "train">, ChromeState> = {
       learn: { status: "Lesson", mode: "Instruction" },
-      lab: { status: "1D plant", mode: "Python API" },
+      lab: { status: "1D plant", mode: "Browser" },
       vertical: { status: "Replay", mode: "PID altitude" },
       systems: { status: "Notes", mode: "Not simulated" },
       progress: { status: "Local record", mode: "Hover lesson" },
