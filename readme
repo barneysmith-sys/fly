@@ -1,0 +1,69 @@
+
+# FLY
+### Drone Flight Simulation & Autonomous Systems
+
+FLY is an open-source drone simulation project built to explore the engineering behind unmanned aerial systems (UAS), flight dynamics, and autonomous navigation.
+
+The goal is simple: **understand how drones work by building a simulator from the ground up.**
+
+Inspired by modern aerospace and defense technology, FLY aims to combine realistic flight physics, interactive controls, and autonomous navigation in a single simulation environment.
+
+## Overview
+
+FLY is an experimental platform for learning and developing:
+
+- **Flight Dynamics** — Thrust, gravity, drag, torque, and stability.
+- **Flight Control** — Manual piloting, attitude control, and PID stabilization.
+- **Autonomous Navigation** — Waypoint following, path planning, and obstacle avoidance.
+- **Sensor Simulation** — IMU, GPS, altitude, and simulated camera inputs.
+- **Mission Planning** — Interactive environments, flight paths, and telemetry.
+
+## Development Roadmap
+
+### Phase 01 — Flight
+- [ ] Build a 3D simulation environment
+- [ ] Create a controllable quadcopter
+- [ ] Implement basic flight physics
+- [ ] Add keyboard and mouse controls
+- [ ] Display real-time flight telemetry
+
+### Phase 02 — Control
+- [ ] Implement PID flight controllers
+- [ ] Simulate motor thrust and torque
+- [ ] Add altitude and position hold
+- [ ] Model wind and environmental disturbances
+
+### Phase 03 — Autonomy
+- [ ] Implement waypoint navigation
+- [ ] Develop autonomous takeoff and landing
+- [ ] Introduce obstacle detection and avoidance
+- [ ] Build a mission-planning interface
+
+### Phase 04 — Simulation
+- [ ] Create multiple 3D environments
+- [ ] Simulate onboard sensors
+- [ ] Add flight recording and replay
+- [ ] Compare manual and autonomous performance
+
+## Technical Architecture
+
+The planned simulation consists of four systems:
+
+1. **Physics Engine** — Models the drone's motion and forces.
+2. **Flight Controller** — Converts control inputs into motor commands.
+3. **Autonomy Engine** — Handles navigation and mission execution.
+4. **Visualization Layer** — Renders the environment, drone, and telemetry.
+
+## Project Philosophy
+
+Build to understand.
+
+Rather than treating drone flight as a black box, FLY is designed to make the underlying engineering visible, interactive, and understandable.
+
+Every system is an opportunity to learn how real autonomous aircraft operate.
+
+---
+
+**Status:** Early Development
+
+Built for experimentation, education, and exploration.
