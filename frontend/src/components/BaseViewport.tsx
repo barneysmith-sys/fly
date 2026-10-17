@@ -1,5 +1,10 @@
 import { useEffect, useRef } from "react";
 import * as THREE from "three";
+import { AircraftVisualController } from "../animation/AircraftVisualController";
+import { applyPose, ChaseRig, placeFpv } from "../animation/CameraTransitions";
+import { buildExplorer4, E4_DIMENSIONS } from "../animation/explorer4Model";
+import { ForceVectors } from "../animation/ForceVectors";
+import { EXPLORER_4 } from "../sim/aircraft";
 import { CHASE_FRAME } from "./chaseFrame";
 import { createApron, createPeaks, createSky, createWater, tickWater } from "./coastalLook";
 import { buildExplorer, spinProps } from "./explorerModel";
@@ -7,12 +12,17 @@ import { APRON, MAINTENANCE, MAIN_HANGAR, PRECISION_PAD, type Site } from "../si
 import { rotateBodyToWorld, type Quat, type Vec3 } from "../sim/math";
 import type { MotorsN } from "../sim/vehicle";
 
-export type CameraMode = "fpv" | "chase" | "orbit" | "scenic";
+export type CameraMode = "fpv" | "chase" | "orbit" | "overview" | "scenic";
 
 export type AircraftPose = {
   position: Vec3;
   quaternion: Quat;
   motors: MotorsN;
+  velocity?: Vec3;
+  timeS?: number;
+  onGround?: boolean;
+  armed?: boolean;
+  dtS?: number;
 };
 
 type BaseViewportProps = {
@@ -22,13 +32,14 @@ type BaseViewportProps = {
   paused: boolean;
   quality: "high" | "low";
   renderRef: { current: () => void };
+  showForcesRef?: { current: boolean };
 };
 
 const DRAWING_SCALE = 6;
 /** Skids sit about 0.039 m below the body origin. At 6× they would clip through the apron. */
 const DRAWING_LIFT_M = 0.08;
 
-export function BaseViewport({ site, poseRef, cameraMode, paused, quality, renderRef }: BaseViewportProps) {
+export function BaseViewport({ site, poseRef, cameraMode, paused, quality, renderRef, showForcesRef }: BaseViewportProps) {
   const mountRef = useRef<HTMLDivElement>(null);
   const cameraModeRef = useRef(cameraMode);
   const pausedRef = useRef(paused);
@@ -118,23 +129,65 @@ export function BaseViewport({ site, poseRef, cameraMode, paused, quality, rende
     lampB.position.set(70, 8, 5);
     scene.add(lampB);
 
-    const drone = buildExplorer();
+    const legacyVisual = new URLSearchParams(window.location.search).get("legacyVisual") === "1";
+    const visual = legacyVisual
+      ? null
+      : new AircraftVisualController(buildExplorer4(), { params: EXPLORER_4.params, visualScale: 1 });
+    const chase = new ChaseRig();
+    const forces = legacyVisual ? null : new ForceVectors({ params: EXPLORER_4.params });
+    const drone = visual ? visual.holder : buildExplorer();
     scene.add(drone);
+    if (forces) {
+      scene.add(forces.group);
+    }
 
     const paint = () => {
       if (disposed) {
         return;
       }
       const pose = poseRef.current;
-      drone.position.set(pose.position.x, pose.position.y, pose.position.z + DRAWING_LIFT_M);
-      drone.quaternion.set(pose.quaternion.x, pose.quaternion.y, pose.quaternion.z, pose.quaternion.w);
-      drone.scale.setScalar(DRAWING_SCALE);
       const mode = cameraModeRef.current;
-      drone.visible = mode !== "fpv";
-      const thrust = pose.motors.reduce((sum, motor) => sum + motor, 0);
-      spinProps(drone, thrust * 0.035);
+      if (visual && forces) {
+        const frame = {
+          timeS: pose.timeS ?? 0,
+          positionM: pose.position,
+          velocityM_S: pose.velocity ?? { x: 0, y: 0, z: 0 },
+          quaternion: pose.quaternion,
+          motorsN: pose.motors,
+          motorSource: "sim" as const,
+          armed: pose.armed !== false,
+          onGround: pose.onGround === true,
+        };
+        visual.update(frame, pose.dtS ?? 0);
+        visual.holder.visible = mode !== "fpv";
+        const showForces = showForcesRef?.current === true;
+        forces.group.visible = showForces;
+        if (showForces) {
+          forces.update(frame);
+        }
+        if (mode === "chase") {
+          applyPose(camera, chase.update(pose.position, pose.quaternion, pose.dtS ?? 0));
+        } else if (mode === "fpv") {
+          applyPose(camera, placeFpv(pose.position, pose.quaternion, E4_DIMENSIONS.fpvAnchor, E4_DIMENSIONS.cameraUptiltRad));
+        } else if (mode === "overview") {
+          camera.fov = 46;
+          camera.up.set(0, 0, 1);
+          camera.position.set(pose.position.x, pose.position.y - 14, pose.position.z + 16);
+          camera.lookAt(pose.position.x, pose.position.y, pose.position.z + 0.2);
+          camera.updateProjectionMatrix();
+        } else {
+          placeCamera(camera, pose, mode, orbit);
+        }
+      } else {
+        drone.position.set(pose.position.x, pose.position.y, pose.position.z + DRAWING_LIFT_M);
+        drone.quaternion.set(pose.quaternion.x, pose.quaternion.y, pose.quaternion.z, pose.quaternion.w);
+        drone.scale.setScalar(DRAWING_SCALE);
+        drone.visible = mode !== "fpv";
+        const thrust = pose.motors.reduce((sum, motor) => sum + motor, 0);
+        spinProps(drone, thrust * 0.035);
+        placeCamera(camera, pose, mode === "overview" ? "orbit" : mode, orbit);
+      }
       tickWater(scene, performance.now() / 1000);
-      placeCamera(camera, pose, mode, orbit);
       renderer.render(scene, camera);
     };
 

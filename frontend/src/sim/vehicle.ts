@@ -4,7 +4,8 @@ import { GRAVITY_M_S2, IDENTITY_QUAT, type Quat, type Vec3, v } from "./math.ts"
  * Nominal small quadcopter. The numbers are round teaching values, not a
  * weighed airframe. Inertia is diagonal in the body frame.
  *
- * X layout, viewed from above. Motor 0 is front-left.
+ * X layout, viewed from above. Body +y is left of the nose.
+ * Motor 0 is front-right, 1 front-left, 2 rear-left, 3 rear-right.
  * Distance from the center to each motor is `motorRadiusM`.
  */
 export type VehicleParams = {

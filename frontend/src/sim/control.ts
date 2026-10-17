@@ -56,13 +56,13 @@ export function attitudeMotors(
   let pitchTarget = 0;
   let yawRate = 0;
   if (mode === "stabilized") {
-    rollTarget = -clamp(input.roll, -1, 1) * gains.maxTiltRad;
+    rollTarget = clamp(input.roll, -1, 1) * gains.maxTiltRad;
     pitchTarget = clamp(input.pitch, -1, 1) * gains.maxTiltRad;
     yawRate = -clamp(input.yaw, -1, 1) * gains.maxYawRateRad_S;
   } else {
     rollTarget = angles.rollRh;
     pitchTarget = angles.pitchRh;
-    const rollRate = -clamp(input.roll, -1, 1) * gains.maxRollRateRad_S;
+    const rollRate = clamp(input.roll, -1, 1) * gains.maxRollRateRad_S;
     const pitchRate = clamp(input.pitch, -1, 1) * gains.maxRollRateRad_S;
     yawRate = -clamp(input.yaw, -1, 1) * gains.maxYawRateRad_S;
     return torqueToMotors(

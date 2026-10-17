@@ -44,7 +44,7 @@ function briefs(params: VehicleParams, tauS: number): PartBrief[] {
       id: "airframe",
       title: "Airframe",
       short: "A small X-layout quadcopter for stabilized training.",
-      detail: `Four rotors on a ${params.motorRadiusM.toFixed(2)} m arm. Mass ${params.massKg.toFixed(2)} kg. The body axes are x forward, y right, z up. This is a fictional training airframe, not a copy of a production vehicle.`,
+      detail: `Four rotors on a ${params.motorRadiusM.toFixed(2)} m arm. Mass ${params.massKg.toFixed(2)} kg. The body axes are x forward, y left, z up. This is a fictional training airframe, not a copy of a production vehicle.`,
     },
     {
       id: "propeller",
