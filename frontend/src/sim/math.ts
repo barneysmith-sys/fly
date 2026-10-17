@@ -106,7 +106,8 @@ export function bodyAxes(q: Quat): BodyAxes {
 
 /**
  * Right-handed Euler angles extracted from the body axes.
- * rollRh > 0 lifts the right side. pitchRh > 0 lowers the nose.
+ * Body +y is left of the nose. rollRh > 0 lifts that side, so the right wing goes down.
+ * pitchRh > 0 lowers the nose.
  * yaw is 0 when the nose points east (+x) and increases toward north (+y).
  */
 export function rhAngles(q: Quat): { rollRh: number; pitchRh: number; yaw: number } {

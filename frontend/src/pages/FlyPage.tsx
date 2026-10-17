@@ -1,5 +1,9 @@
 import { useEffect, useRef, useState } from "react";
+import { motorLayout, wrenchFromMotors } from "../animation/motorLayout";
+import { activeNote } from "../education/flightLessons";
 import { BaseViewport, type AircraftPose, type CameraMode } from "../components/BaseViewport";
+import { AltitudeTape, AttitudeIndicator, HeadingIndicator, MapTrack } from "../components/FlightInstruments";
+import { MotorMixingPanel, type MixingHighlight } from "../components/MotorMixingPanel";
 import { Preflight } from "../components/Preflight";
 import { useChrome } from "../chrome";
 import { EXPLORER_4 } from "../sim/aircraft";
@@ -58,10 +62,19 @@ type Hud = {
 
 type FlyPageProps = {
   site: Site;
+  presentation?: "pilot" | "gcs";
 };
 
-export function FlyPage({ site }: FlyPageProps) {
-  const [phase, setPhase] = useState<"preflight" | "flight">("preflight");
+type CoachMode = "guided" | "discovery" | "free";
+
+export function FlyPage({ site, presentation = "pilot" }: FlyPageProps) {
+  const [phase, setPhase] = useState<"preflight" | "flight">(() => {
+    if (presentation === "gcs" || sessionStorage.getItem("fly.enter") === "1") {
+      sessionStorage.removeItem("fly.enter");
+      return "flight";
+    }
+    return "preflight";
+  });
   if (phase === "preflight") {
     return (
       <div className="fly-shell">
@@ -69,10 +82,18 @@ export function FlyPage({ site }: FlyPageProps) {
       </div>
     );
   }
-  return <FlightSession site={site} onPreflight={() => setPhase("preflight")} />;
+  return <FlightSession site={site} presentation={presentation} onPreflight={() => setPhase("preflight")} />;
 }
 
-function FlightSession({ site, onPreflight }: { site: Site; onPreflight: () => void }) {
+function FlightSession({
+  site,
+  presentation,
+  onPreflight,
+}: {
+  site: Site;
+  presentation: "pilot" | "gcs";
+  onPreflight: () => void;
+}) {
   const aircraft = EXPLORER_4;
   const spawn = () =>
     vehicleState({
@@ -107,7 +128,16 @@ function FlightSession({ site, onPreflight }: { site: Site; onPreflight: () => v
     position: initial.positionM,
     quaternion: initial.quaternion,
     motors: motorsRef.current,
+    velocity: initial.velocityM_S,
+    timeS: 0,
+    onGround: true,
+    armed: true,
+    dtS: 0,
   });
+  const showForcesRef = useRef(false);
+  const pilotRef = useRef({ throttle: 0, roll: 0, pitch: 0, yaw: 0 });
+  const flightLogRef = useRef({ maxAltitudeM: initial.positionM.z, distanceM: 0, resets: 0, lastX: initial.positionM.x, lastY: initial.positionM.y });
+  const trailRef = useRef<{ x: number; y: number }[]>([{ x: initial.positionM.x, y: initial.positionM.y }]);
   const renderRef = useRef<() => void>(() => {});
   const [cameraMode, setCameraMode] = useState<CameraMode>("chase");
   const [mode, setMode] = useState<ControlMode>("stabilized");
@@ -115,6 +145,11 @@ function FlightSession({ site, onPreflight }: { site: Site; onPreflight: () => v
   const [menu, setMenu] = useState(false);
   const [chromeOn, setChromeOn] = useState(true);
   const [help, setHelp] = useState(false);
+  const [showForces, setShowForces] = useState(false);
+  const [coach, setCoach] = useState<CoachMode>("guided");
+  const [debriefOn, setDebriefOn] = useState(false);
+  const [trail, setTrail] = useState<{ x: number; y: number }[]>(trailRef.current);
+  const [pilot, setPilot] = useState(pilotRef.current);
   const [mission, setMission] = useState<Mission>(missionRef.current);
   const [binding, setBinding] = useState<Binding>(bindingRef.current);
   const [deadzone, setDeadzone] = useState(deadzoneRef.current);
@@ -154,6 +189,9 @@ function FlightSession({ site, onPreflight }: { site: Site; onPreflight: () => v
   useEffect(() => {
     captureRef.current = capture;
   }, [capture]);
+  useEffect(() => {
+    showForcesRef.current = showForces;
+  }, [showForces]);
 
   useEffect(() => {
     const reset = () => {
@@ -169,6 +207,15 @@ function FlightSession({ site, onPreflight }: { site: Site; onPreflight: () => v
       scoredRef.current = false;
       scoreRef.current = null;
       stageRef.current = 0;
+      flightLogRef.current.resets += 1;
+    };
+    const clearKeys = () => {
+      keysRef.current.clear();
+    };
+    const onHide = () => {
+      if (document.hidden) {
+        clearKeys();
+      }
     };
     const onDown = (event: KeyboardEvent) => {
       if (typing(event)) {
@@ -219,6 +266,8 @@ function FlightSession({ site, onPreflight }: { site: Site; onPreflight: () => v
     };
     window.addEventListener("keydown", onDown);
     window.addEventListener("keyup", onUp);
+    window.addEventListener("blur", clearKeys);
+    document.addEventListener("visibilitychange", onHide);
     let raf = 0;
     let last = performance.now();
     let accumulator = 0;
@@ -236,6 +285,7 @@ function FlightSession({ site, onPreflight }: { site: Site; onPreflight: () => v
             touch: touchRef.current,
           });
           throttleRef.current = pilot.throttle;
+          pilotRef.current = pilot;
           const command = attitudeMotors(stateRef.current, pilot, modeRef.current, aircraft.params, aircraft.gains);
           const lagged = lagMotors(motorsRef.current, command, SIM_DT_S, aircraft.motorTauS);
           const stepped = stepRigidBody(stateRef.current, lagged, SIM_DT_S, aircraft.params);
@@ -248,6 +298,11 @@ function FlightSession({ site, onPreflight }: { site: Site; onPreflight: () => v
             collisionsRef.current += 1;
           }
           lastContactRef.current = contactId;
+          const log = flightLogRef.current;
+          log.maxAltitudeM = Math.max(log.maxAltitudeM, resolved.state.positionM.z);
+          log.distanceM += Math.hypot(resolved.state.positionM.x - log.lastX, resolved.state.positionM.y - log.lastY);
+          log.lastX = resolved.state.positionM.x;
+          log.lastY = resolved.state.positionM.y;
           if (missionRef.current === "academy") {
             const snap = snapshot(resolved.state, site, hoverHeldRef.current, launchHeadingRef.current);
             if (hoverIsStable(snap)) {
@@ -294,12 +349,24 @@ function FlightSession({ site, onPreflight }: { site: Site; onPreflight: () => v
         position: stateRef.current.positionM,
         quaternion: stateRef.current.quaternion,
         motors: motorsRef.current,
+        velocity: stateRef.current.velocityM_S,
+        timeS: stateRef.current.timeS,
+        onGround: contactRef.current?.id === "ground" || contactRef.current?.pad === true,
+        armed: true,
+        dtS: pausedRef.current ? 0 : frameDt,
       };
       renderRef.current();
       hudTimer += frameDt;
       if (hudTimer >= 0.1) {
         hudTimer = 0;
         const pad = gamepadSummary(deadzoneRef.current);
+        const last = trailRef.current[trailRef.current.length - 1];
+        const here = stateRef.current.positionM;
+        if (!last || Math.hypot(here.x - last.x, here.y - last.y) > 0.4) {
+          trailRef.current = [...trailRef.current, { x: here.x, y: here.y }].slice(-400);
+          setTrail(trailRef.current);
+        }
+        setPilot(pilotRef.current);
         setHud({
           state: stateRef.current,
           motors: motorsRef.current,
@@ -323,6 +390,8 @@ function FlightSession({ site, onPreflight }: { site: Site; onPreflight: () => v
       cancelAnimationFrame(raf);
       window.removeEventListener("keydown", onDown);
       window.removeEventListener("keyup", onUp);
+      window.removeEventListener("blur", clearKeys);
+      document.removeEventListener("visibilitychange", onHide);
     };
   }, [aircraft, site]);
 
@@ -330,6 +399,27 @@ function FlightSession({ site, onPreflight }: { site: Site; onPreflight: () => v
 
   const angles = rhAngles(hud.state.quaternion);
   const horizontal = Math.hypot(hud.state.velocityM_S.x, hud.state.velocityM_S.y);
+  const lesson = activeNote(
+    {
+      quaternion: hud.state.quaternion,
+      velocityM_S: hud.state.velocityM_S,
+      angularVelocityRad_S: hud.state.angularVelocityRad_S,
+      motorsN: hud.motors,
+    },
+    pilot,
+    {
+      massKg: aircraft.params.massKg,
+      gravityM_S2: aircraft.params.gravityM_S2,
+      thrustMaxN: aircraft.params.thrustMaxN,
+      motorRadiusM: aircraft.params.motorRadiusM,
+      yawTorquePerNewtonM: aircraft.params.yawTorquePerNewtonM,
+      dragCoefficientKgPerM: aircraft.params.dragCoefficientKgPerM,
+      maxTiltRad: aircraft.gains.maxTiltRad,
+    },
+    Boolean(hud.contact),
+  );
+  const mixHighlight: MixingHighlight =
+    Math.abs(pilot.pitch) > 0.2 ? "pitch" : Math.abs(pilot.roll) > 0.2 ? "roll" : Math.abs(pilot.yaw) > 0.2 ? "yaw" : pilot.throttle > 0.02 ? "collective" : null;
   const stage = ACADEMY_STAGES[Math.min(hud.stage, ACADEMY_STAGES.length - 1)];
   const academyDone = hud.stage >= ACADEMY_STAGES.length;
 
@@ -349,6 +439,7 @@ function FlightSession({ site, onPreflight }: { site: Site; onPreflight: () => v
           paused={paused}
           quality={quality}
           renderRef={renderRef}
+          showForcesRef={showForcesRef}
         />
       </div>
       <div className="vignette" />
@@ -357,7 +448,7 @@ function FlightSession({ site, onPreflight }: { site: Site; onPreflight: () => v
           <div className="fly-status">
             <span>{paused ? "Paused" : "Running"}</span>
             <span>{mode === "stabilized" ? "Stabilized" : "Acro"}</span>
-            <span>{cameraMode === "fpv" ? "FPV" : cameraMode === "chase" ? "Chase" : "Orbit"}</span>
+            <span>{cameraMode === "fpv" ? "FPV" : cameraMode === "chase" ? "Chase" : cameraMode === "overview" ? "Overview" : cameraMode === "scenic" ? "Cinematic" : "Orbit"}</span>
             <span className="mono">{hud.state.timeS.toFixed(1)} s</span>
             <span className="mono">THR {Math.round(hud.throttle * 100)}%</span>
           </div>
@@ -371,6 +462,8 @@ function FlightSession({ site, onPreflight }: { site: Site; onPreflight: () => v
                 <option value="fpv">FPV</option>
                 <option value="chase">Chase</option>
                 <option value="orbit">Orbit</option>
+                <option value="overview">Base overview</option>
+                <option value="scenic">Cinematic</option>
               </select>
             </label>
             <label>
@@ -388,6 +481,12 @@ function FlightSession({ site, onPreflight }: { site: Site; onPreflight: () => v
                 <option value="precision">Precision landing</option>
               </select>
             </label>
+            <button type="button" aria-pressed={showForces} onClick={() => setShowForces((value) => !value)}>
+              Forces
+            </button>
+            <button type="button" onClick={() => setDebriefOn((value) => !value)}>
+              Debrief
+            </button>
             <button type="button" onClick={() => setPaused((value) => !value)}>
               {paused ? "Resume" : "Pause"}
             </button>
@@ -402,7 +501,7 @@ function FlightSession({ site, onPreflight }: { site: Site; onPreflight: () => v
             </header>
             <Attitude
               pitchDeg={(-angles.pitchRh * 180) / Math.PI}
-              rollDeg={(-angles.rollRh * 180) / Math.PI}
+              rollDeg={(angles.rollRh * 180) / Math.PI}
             />
             <dl className="hud-metrics">
               <Metric label="Altitude" value={`${hud.state.positionM.z.toFixed(2)} m`} />
@@ -410,7 +509,7 @@ function FlightSession({ site, onPreflight }: { site: Site; onPreflight: () => v
               <Metric label="Horizontal speed" value={`${horizontal.toFixed(2)} m/s`} />
               <Metric label="Heading" value={`${headingDegFromNorth(hud.state.quaternion).toFixed(0)}°`} />
               <Metric label="Pitch nose up" value={`${signed((-angles.pitchRh * 180) / Math.PI)}°`} />
-              <Metric label="Roll right down" value={`${signed((-angles.rollRh * 180) / Math.PI)}°`} />
+              <Metric label="Roll right down" value={`${signed((angles.rollRh * 180) / Math.PI)}°`} />
               <Metric label="Thrust" value={`${hud.thrustN.toFixed(2)} N`} />
               <Metric label="Weight" value={`${hoverThrustN(aircraft.params).toFixed(2)} N`} />
             </dl>
@@ -494,6 +593,73 @@ function FlightSession({ site, onPreflight }: { site: Site; onPreflight: () => v
               >
                 Skip tutorial
               </button>
+            </section>
+          ) : null}
+          {coach !== "free" ? (
+            <section className="hud coach-card">
+              <p className="eyebrow">Instructor · {coach}</p>
+              <h2>{coach === "discovery" ? "Why?" : lesson.title}</h2>
+              {coach === "guided" ? <p>{lesson.body}</p> : <p>{lesson.equation}</p>}
+              <p className="mono">{lesson.equation}</p>
+              <div className="form-actions">
+                {(["guided", "discovery", "free"] as const).map((modeName) => (
+                  <button key={modeName} type="button" aria-pressed={coach === modeName} onClick={() => setCoach(modeName)}>
+                    {modeName}
+                  </button>
+                ))}
+              </div>
+            </section>
+          ) : (
+            <button type="button" className="show-hud coach-toggle" onClick={() => setCoach("guided")}>
+              Instructor
+            </button>
+          )}
+          <details className="hud motor-card">
+            <summary>Motors · sim</summary>
+            <MotorMixingPanel
+              motorsN={hud.motors}
+              motorMaxN={aircraft.params.thrustMaxN / 4}
+              layout={motorLayout(aircraft.params)}
+              wrench={wrenchFromMotors(hud.motors, aircraft.params)}
+              source="sim"
+              highlight={mixHighlight}
+              size={220}
+            />
+          </details>
+          {debriefOn ? (
+            <section className="hud debrief-card">
+              <p className="eyebrow">This flight</p>
+              <h2>{hud.state.timeS.toFixed(1)} s</h2>
+              <dl className="hud-metrics">
+                <Metric label="Maximum altitude" value={`${flightLogRef.current.maxAltitudeM.toFixed(2)} m`} />
+                <Metric label="Path length" value={`${flightLogRef.current.distanceM.toFixed(1)} m`} />
+                <Metric label="Resets" value={String(flightLogRef.current.resets)} />
+                <Metric label="Contacts" value={String(hud.collisions)} />
+              </dl>
+              <p className="field-hint">Numbers are from this session. There is no score besides the precision-landing check.</p>
+            </section>
+          ) : null}
+          {presentation === "gcs" ? (
+            <section className="gcs-board" aria-label="Ground control">
+              <header className="panel-head">
+                <h2>Ground control</h2>
+                <p>Ground truth · not PX4</p>
+              </header>
+              <div className="gcs-grid">
+                <AttitudeIndicator quaternion={hud.state.quaternion} />
+                <HeadingIndicator quaternion={hud.state.quaternion} />
+                <AltitudeTape altitudeM={hud.state.positionM.z} verticalSpeedM_S={hud.state.velocityM_S.z} />
+                <MapTrack
+                  trail={trail}
+                  headingDeg={headingDegFromNorth(hud.state.quaternion)}
+                  bounds={{ minX: -80, maxX: 180, minY: -20, maxY: 120 }}
+                  width={320}
+                  height={220}
+                />
+              </div>
+              <p className="field-hint">
+                Position, attitude, and thrust are the simulator state. Battery, GPS, and sensor health are not modeled. Waypoint execution is not connected.
+              </p>
             </section>
           ) : null}
           {mission === "precision" ? (

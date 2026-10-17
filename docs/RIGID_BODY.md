@@ -13,18 +13,18 @@ values, not a weighed airframe.
 World frame: x east, y north, z up, metres. The origin is the plaza launch
 point. This is not a north-east-down frame.
 
-Body frame: x forward, y right, z up. Thrust is along body +z. The quaternion
-rotates body vectors into the world.
+Body frame: x forward, y left of the nose, z up. Thrust is along body +z. The
+quaternion rotates body vectors into the world. Calling +y "right" mirrored
+roll on screen, so the comments now match the right-handed frame.
 
 Right-handed body angles:
 
 - `pitchRh > 0` lowers the nose and tips thrust toward +x.
-- `rollRh > 0` lifts the right side and tips thrust toward −y.
+- `rollRh > 0` lifts body +y (the left side), so the right wing goes down and thrust tips toward the right.
 - Yaw is 0 with the nose east and increases toward north.
 
-Pilot displays flip those signs: nose-up pitch and right-wing-down roll are
-what the instruments show. Heading on the panel is degrees clockwise from
-north.
+Pilot displays show nose-up pitch as `-pitchRh` and right-wing-down roll as
+`+rollRh`. Heading on the panel is degrees clockwise from north.
 
 SI units throughout: m, m/s, m/s², kg, kg·m², N, N·m, rad, rad/s, s.
 

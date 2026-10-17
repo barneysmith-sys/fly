@@ -26,7 +26,7 @@ export function explain(question: InstructorQuestion, context: InstructorContext
   const tiltDeg = (tiltFromVerticalRad(context.state.quaternion) * 180) / Math.PI;
   const angles = rhAngles(context.state.quaternion);
   const pitchNoseUp = (-angles.pitchRh * 180) / Math.PI;
-  const rollRightDown = (-angles.rollRh * 180) / Math.PI;
+  const rollRightDown = (angles.rollRh * 180) / Math.PI;
   const speed = Math.hypot(context.state.velocityM_S.x, context.state.velocityM_S.y);
   if (question === "drift") {
     return `Horizontal speed is ${speed.toFixed(2)} m/s and the body up-axis is ${tiltDeg.toFixed(1)} deg from vertical. Thrust is ${context.thrustN.toFixed(2)} N along the body up-axis, so any tilt gives that thrust a horizontal part. Centered sticks in stabilized mode command level attitude; they do not cancel speed the vehicle already has. Drag is the only horizontal force once the vehicle is level.`;
