@@ -1,5 +1,6 @@
 import { useEffect, useRef } from "react";
 import * as THREE from "three";
+import { CHASE_FRAME } from "./chaseFrame";
 import { createApron, createPeaks, createSky, createWater, tickWater } from "./coastalLook";
 import { buildExplorer, spinProps } from "./explorerModel";
 import { APRON, MAINTENANCE, MAIN_HANGAR, PRECISION_PAD, type Site } from "../sim/coastal";
@@ -24,6 +25,8 @@ type BaseViewportProps = {
 };
 
 const DRAWING_SCALE = 6;
+/** Skids sit about 0.039 m below the body origin. At 6× they would clip through the apron. */
+const DRAWING_LIFT_M = 0.08;
 
 export function BaseViewport({ site, poseRef, cameraMode, paused, quality, renderRef }: BaseViewportProps) {
   const mountRef = useRef<HTMLDivElement>(null);
@@ -123,7 +126,7 @@ export function BaseViewport({ site, poseRef, cameraMode, paused, quality, rende
         return;
       }
       const pose = poseRef.current;
-      drone.position.set(pose.position.x, pose.position.y, pose.position.z);
+      drone.position.set(pose.position.x, pose.position.y, pose.position.z + DRAWING_LIFT_M);
       drone.quaternion.set(pose.quaternion.x, pose.quaternion.y, pose.quaternion.z, pose.quaternion.w);
       drone.scale.setScalar(DRAWING_SCALE);
       const mode = cameraModeRef.current;
@@ -235,18 +238,18 @@ function placeCamera(
       camera.position.z + forward.z,
     );
   } else if (mode === "chase") {
-    camera.fov = 48;
+    camera.fov = CHASE_FRAME.fovDeg;
     camera.up.set(0, 0, 1);
     const right = rotateBodyToWorld(pose.quaternion, { x: 0, y: 1, z: 0 });
     camera.position.set(
-      pose.position.x - forward.x * 14 + right.x * 4,
-      pose.position.y - forward.y * 14 + right.y * 4,
-      pose.position.z + 6,
+      pose.position.x - forward.x * CHASE_FRAME.backM + right.x * CHASE_FRAME.rightM,
+      pose.position.y - forward.y * CHASE_FRAME.backM + right.y * CHASE_FRAME.rightM,
+      pose.position.z + CHASE_FRAME.upM,
     );
     camera.lookAt(
-      pose.position.x + forward.x * 40,
-      pose.position.y + forward.y * 40,
-      pose.position.z + 8,
+      pose.position.x + forward.x * CHASE_FRAME.lookAheadM,
+      pose.position.y + forward.y * CHASE_FRAME.lookAheadM,
+      pose.position.z + CHASE_FRAME.lookUpM,
     );
   } else if (mode === "scenic") {
     camera.fov = 42;
